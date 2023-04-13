@@ -9,6 +9,9 @@ Parameters:
   HandleNewReportLambdaArn:
     Type: "String"
     Default: "arn:aws:lambda:us-east-1:662545362847:function:handle-new-report"
+  SearchReportUserLambdaArn:
+    Type: "String"
+    Default: "arn:aws:lambda:us-east-1:662545362847:function:search-report-user"
 
 Resources:
   Api:
@@ -24,13 +27,15 @@ Resources:
   ApiDeployment:
     Type: "AWS::ApiGateway::Deployment"
     DependsOn:
-      - "ApiReportPostMethod"
-      - "ApiReportOptionsMethod"
+      - "ApiReportsGetMethod"
+      - "ApiReportsPostMethod"
+      - "ApiReportsOptionsMethod"
+      - "ApiReportIdGetMethod"
     Properties:
       RestApiId: !Ref "Api"
       StageName: "dev"
 
-  ApiCognitoAuthorizer:
+  CognitoUserAuthorizer:
     Type: "AWS::ApiGateway::Authorizer"
     Properties:
       Name: !Sub "${ApiName}-cognito-authorizer"
@@ -40,24 +45,40 @@ Resources:
       ProviderARNs:
         - !Ref "CognitoUserPoolArn"
 
-  # API Report Resource
+  # API Reports Resources
 
-  ApiReportResource:
+  ApiReportsResource:
     Type: "AWS::ApiGateway::Resource"
     Properties:
       ParentId: !GetAtt "Api.RootResourceId"
-      PathPart: "report"
+      PathPart: "reports"
       RestApiId: !Ref "Api"
 
-  ApiReportPostMethod:
+  ApiReportsGetMethod:
     Type: "AWS::ApiGateway::Method"
     Properties:
       ApiKeyRequired: false
       AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref "ApiCognitoAuthorizer"
+      AuthorizerId: !Ref "CognitoUserAuthorizer"
+      HttpMethod: "GET"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiReportsResource"
+      Integration:
+        Type: "AWS_PROXY"
+        IntegrationHttpMethod: "POST"
+        IntegrationResponses:
+          - StatusCode: 200
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportUserLambdaArn}/invocations"
+
+  ApiReportsPostMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref "CognitoUserAuthorizer"
       HttpMethod: "POST"
       RestApiId: !Ref "Api"
-      ResourceId: !Ref "ApiReportResource"
+      ResourceId: !Ref "ApiReportsResource"
       Integration:
         Type: "AWS_PROXY"
         IntegrationHttpMethod: "POST"
@@ -65,15 +86,15 @@ Resources:
           - StatusCode: 200
         Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandleNewReportLambdaArn}/invocations"
 
-  ApiReportOptionsMethod:
+  ApiReportsOptionsMethod:
     Type: "AWS::ApiGateway::Method"
     Properties:
       ApiKeyRequired: false
       AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref "ApiCognitoAuthorizer"
+      AuthorizerId: !Ref "CognitoUserAuthorizer"
       HttpMethod: "OPTIONS"
       RestApiId: !Ref "Api"
-      ResourceId: !Ref "ApiReportResource"
+      ResourceId: !Ref "ApiReportsResource"
       MethodResponses:
         - StatusCode: 200
           ResponseParameters:
@@ -88,11 +109,76 @@ Resources:
           - StatusCode: 200
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         PassthroughBehavior: "WHEN_NO_MATCH"
         RequestTemplates:
           application/json: '{"statusCode": 200}'
+
+  ApiReportIdResource:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      ParentId: !Ref "ApiReportsResource"
+      PathPart: "{reportId}"
+      RestApiId: !Ref "Api"
+
+  ApiReportIdGetMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref "CognitoUserAuthorizer"
+      HttpMethod: "GET"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiReportIdResource"
+      RequestParameters:
+        "method.request.path.reportId": true
+      Integration:
+        Type: "AWS_PROXY"
+        IntegrationHttpMethod: "POST"
+        IntegrationResponses:
+          - StatusCode: 200
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportUserLambdaArn}/invocations"
+
+  ApiReportIdOptionsMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref "CognitoUserAuthorizer"
+      HttpMethod: "OPTIONS"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiReportIdResource"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+          ResponseModels:
+            application/json: "Empty"
+      Integration:
+        Type: "MOCK"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+
+  # Lambda Invocation Permissions
+
+  SearchReportUserLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref "SearchReportUserLambdaArn"
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/reports*"
 
   HandleNewReportLambdaPermission:
     Type: "AWS::Lambda::Permission"
@@ -101,7 +187,7 @@ Resources:
       Action: "lambda:InvokeFunction"
       Principal: "apigateway.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/POST/report"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/POST/reports"
 
 Outputs:
   ApiId:
