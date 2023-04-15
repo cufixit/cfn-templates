@@ -5,7 +5,7 @@ STACK_NAME=cu-fixit-api
 .PHONY: api-stack
 api-stack: apigateway.yaml
 	aws cloudformation deploy --template-file apigateway.yaml --stack-name $(STACK_NAME) --capabilities CAPABILITY_IAM \
-	--parameter-overrides CognitoUserPoolArn=$(COGNITO_USER_POOL_ARN)
+	--parameter-overrides CognitoUserPoolArn=$(COGNITO_USER_POOL_ARN) CognitoAdminPoolArn=$(COGNITO_ADMIN_POOL_ARN)
 
 .PHONY: api
 api: api-stack
