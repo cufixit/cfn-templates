@@ -27,6 +27,9 @@ Parameters:
   ExtractKeywordsLambdaName:
     Type: "String"
     Default: "extract-keywords"
+  SearchReportAdminLambdaName:
+    Type: "String"
+    Default: "search-report-admin"
 
 Resources:
   ReportsDomain:
@@ -134,6 +137,25 @@ Resources:
         Variables:
           reportsTableName: !Ref "ReportsTableName"
 
+  SearchReportAdminLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "SearchReportAdminLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "${SearchReportAdminLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "SearchReportAdminLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          photosBucketName: !Ref "PhotosBucketName"
+          reportsDomainEndpoint: !GetAtt "ReportsDomain.DomainEndpoint"
+          reportsTableName: !Ref "ReportsTableName"
+
   StoreAndIndexReportLambdaEventSourceMapping:
     Type: "AWS::Lambda::EventSourceMapping"
     Properties:
@@ -207,6 +229,26 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/ComprehendFullAccess"
 
+  SearchReportAdminLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${AWS::StackName}-${SearchReportAdminLambdaName}-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+
   HandleNewReportLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
@@ -222,6 +264,11 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${ExtractKeywordsLambdaName}"
 
+  SearchReportAdminLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${SearchReportAdminLambdaName}"
+
 Outputs:
   HandleNewReportLambdaArn:
     Value: !GetAtt "HandleNewReportLambda.Arn"
@@ -235,3 +282,7 @@ Outputs:
     Value: !GetAtt "ExtractKeywordsLambda.Arn"
     Export:
       Name: "ExtractKeywordsLambdaArn"
+  SearchReportAdminLambdaArn:
+    Value: !GetAtt "SearchReportAdminLambda.Arn"
+    Export:
+      Name: "SearchReportAdminLambdaArn"

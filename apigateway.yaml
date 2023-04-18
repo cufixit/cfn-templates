@@ -11,9 +11,6 @@ Parameters:
   SearchReportUserLambdaArn:
     Type: "String"
     Default: "arn:aws:lambda:us-east-1:662545362847:function:search-report-user"
-  SearchReportMaintainerLambdaArn:
-    Type: "String"
-    Default: "arn:aws:lambda:us-east-1:662545362847:function:search-report-maintainer"
 
 Resources:
   Api:
@@ -214,7 +211,9 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportMaintainerLambdaArn}/invocations"
+        Uri: !Sub
+          - "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
+          - SearchReportAdminLambdaArn: !ImportValue "SearchReportAdminLambdaArn"
 
   ApiAdminReportsOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -224,6 +223,61 @@ Resources:
       HttpMethod: "OPTIONS"
       RestApiId: !Ref "Api"
       ResourceId: !Ref "ApiAdminReportsResource"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+          ResponseModels:
+            application/json: "Empty"
+      Integration:
+        Type: "MOCK"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+
+  ApiAdminReportIdResource:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      ParentId: !Ref "ApiAdminReportsResource"
+      PathPart: "{reportId}"
+      RestApiId: !Ref "Api"
+
+  ApiAdminReportIdGetMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref "CognitoAdminAuthorizer"
+      HttpMethod: "GET"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiAdminReportIdResource"
+      RequestParameters:
+        "method.request.path.reportId": true
+      Integration:
+        Type: "AWS_PROXY"
+        IntegrationHttpMethod: "POST"
+        IntegrationResponses:
+          - StatusCode: 200
+        Uri: !Sub
+          - "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
+          - SearchReportAdminLambdaArn: !ImportValue "SearchReportAdminLambdaArn"
+
+  ApiAdminReportIdOptionsMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "NONE"
+      HttpMethod: "OPTIONS"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiAdminReportIdResource"
       MethodResponses:
         - StatusCode: 200
           ResponseParameters:
@@ -264,14 +318,14 @@ Resources:
       SourceAccount: !Ref "AWS::AccountId"
       SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/POST/reports"
 
-  SearchReportMaintainerLambdaPermission:
+  SearchReportAdminLambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
-      FunctionName: !Ref "SearchReportMaintainerLambdaArn"
+      FunctionName: !ImportValue "SearchReportAdminLambdaArn"
       Action: "lambda:InvokeFunction"
       Principal: "apigateway.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/admin/reports"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/admin/reports*"
 
 Outputs:
   ApiId:
