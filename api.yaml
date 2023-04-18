@@ -1,22 +1,22 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Parameters:
-  ApiName:
-    Type: "String"
-    Default: "cu-fixit-api"
   CognitoUserPoolArn:
     Type: "String"
   CognitoAdminPoolArn:
     Type: "String"
+  HandleNewReportLambdaArn:
+    Type: "String"
   SearchReportUserLambdaArn:
     Type: "String"
-    Default: "arn:aws:lambda:us-east-1:662545362847:function:search-report-user"
+  SearchReportAdminLambdaArn:
+    Type: "String"
 
 Resources:
   Api:
     Type: "AWS::ApiGateway::RestApi"
     Properties:
-      Name: !Ref "ApiName"
+      Name: !Sub "${AWS::StackName}-api"
       EndpointConfiguration:
         Types:
           - "REGIONAL"
@@ -33,6 +33,8 @@ Resources:
       - "ApiReportIdOptionsMethod"
       - "ApiAdminReportsGetMethod"
       - "ApiAdminReportsOptionsMethod"
+      - "ApiAdminReportIdGetMethod"
+      - "ApiAdminReportIdOptionsMethod"
     Properties:
       RestApiId: !Ref "Api"
       StageName: "dev"
@@ -40,7 +42,7 @@ Resources:
   CognitoUserAuthorizer:
     Type: "AWS::ApiGateway::Authorizer"
     Properties:
-      Name: !Sub "${ApiName}-cognito-user-authorizer"
+      Name: !Sub "${AWS::StackName}-cognito-user-authorizer"
       RestApiId: !Ref "Api"
       Type: "COGNITO_USER_POOLS"
       IdentitySource: "method.request.header.Authorization"
@@ -50,7 +52,7 @@ Resources:
   CognitoAdminAuthorizer:
     Type: "AWS::ApiGateway::Authorizer"
     Properties:
-      Name: !Sub "${ApiName}-cognito-admin-authorizer"
+      Name: !Sub "${AWS::StackName}-cognito-admin-authorizer"
       RestApiId: !Ref "Api"
       Type: "COGNITO_USER_POOLS"
       IdentitySource: "method.request.header.Authorization"
@@ -96,9 +98,7 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub
-          - "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandleNewReportLambdaArn}/invocations"
-          - HandleNewReportLambdaArn: !ImportValue "HandleNewReportLambdaArn"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandleNewReportLambdaArn}/invocations"
 
   ApiReportsOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -211,9 +211,7 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub
-          - "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
-          - SearchReportAdminLambdaArn: !ImportValue "SearchReportAdminLambdaArn"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
 
   ApiAdminReportsOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -266,9 +264,7 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub
-          - "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
-          - SearchReportAdminLambdaArn: !ImportValue "SearchReportAdminLambdaArn"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
 
   ApiAdminReportIdOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -312,7 +308,7 @@ Resources:
   HandleNewReportLambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
-      FunctionName: !ImportValue "HandleNewReportLambdaArn"
+      FunctionName: !Ref "HandleNewReportLambdaArn"
       Action: "lambda:InvokeFunction"
       Principal: "apigateway.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"
@@ -321,7 +317,7 @@ Resources:
   SearchReportAdminLambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
-      FunctionName: !ImportValue "SearchReportAdminLambdaArn"
+      FunctionName: !Ref "SearchReportAdminLambdaArn"
       Action: "lambda:InvokeFunction"
       Principal: "apigateway.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"

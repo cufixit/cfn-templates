@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  LambdaCodeSourceBucket:
+    Type: "String"
+  CognitoUserPoolArn:
+    Type: "String"
+  CognitoAdminPoolArn:
+    Type: "String"
+  ReportsDomainName:
+    Type: "String"
+    Default: "reports"
+  ReportsTableName:
+    Type: "String"
+    Default: "reports"
+  PhotosBucketName:
+    Type: "String"
+    Default: "cu-fixit-photos"
+  NewReportQueueName:
+    Type: "String"
+    Default: "new-report-queue"
+  KeywordExtractionQueueName:
+    Type: "String"
+    Default: "keyword-extraction-queue"
+
+Resources:
+  ReportsDomain:
+    Type: "AWS::OpenSearchService::Domain"
+    Properties:
+      DomainName: !Ref "ReportsDomainName"
+      ClusterConfig:
+        InstanceType: "t3.small.search"
+        InstanceCount: 1
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 10
+        VolumeType: "gp2"
+
+  ReportsTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Ref "ReportsTableName"
+      AttributeDefinitions:
+        - AttributeName: "reportID"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "reportID"
+          KeyType: "HASH"
+      BillingMode: "PROVISIONED"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  PhotosBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref "PhotosBucketName"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - "*"
+            AllowedMethods:
+              - "GET"
+              - "POST"
+            AllowedHeaders:
+              - "*"
+
+  NewReportQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref "NewReportQueueName"
+
+  KeywordExtractionQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref "KeywordExtractionQueueName"
+
+  LambdaStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: "lambda.yaml"
+      Parameters:
+        StackName: !Ref "AWS::StackName"
+        LambdaCodeSourceBucket: !Ref "LambdaCodeSourceBucket"
+        ReportsDomainEndpoint: !GetAtt "ReportsDomain.DomainEndpoint"
+        ReportsTableName: !Ref "ReportsTableName"
+        PhotosBucketName: !Ref "PhotosBucketName"
+        NewReportQueueArn: !GetAtt "NewReportQueue.Arn"
+        NewReportQueueUrl: !GetAtt "NewReportQueue.QueueUrl"
+        KeywordExtractionQueueArn: !GetAtt "KeywordExtractionQueue.Arn"
+        KeywordExtractionQueueUrl: !GetAtt "KeywordExtractionQueue.QueueUrl"
+
+  ApiStack:
+    Type: "AWS::CloudFormation::Stack"
+    DependsOn:
+      - "LambdaStack"
+    Properties:
+      TemplateURL: "api.yaml"
+      Parameters:
+        CognitoUserPoolArn: !Ref "CognitoUserPoolArn"
+        CognitoAdminPoolArn: !Ref "CognitoAdminPoolArn"
+        HandleNewReportLambdaArn: !GetAtt "LambdaStack.Outputs.HandleNewReportLambdaArn"
+        SearchReportUserLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportUserLambdaArn"
+        SearchReportAdminLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportAdminLambdaArn"
+
+Outputs:
+  ApiId:
+    Description: "API ID"
+    Value: !GetAtt "ApiStack.Outputs.ApiId"
