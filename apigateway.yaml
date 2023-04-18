@@ -8,9 +8,6 @@ Parameters:
     Type: "String"
   CognitoAdminPoolArn:
     Type: "String"
-  HandleNewReportLambdaArn:
-    Type: "String"
-    Default: "arn:aws:lambda:us-east-1:662545362847:function:handle-new-report"
   SearchReportUserLambdaArn:
     Type: "String"
     Default: "arn:aws:lambda:us-east-1:662545362847:function:search-report-user"
@@ -102,7 +99,9 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandleNewReportLambdaArn}/invocations"
+        Uri: !Sub
+          - "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandleNewReportLambdaArn}/invocations"
+          - HandleNewReportLambdaArn: !ImportValue "HandleNewReportLambdaArn"
 
   ApiReportsOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -259,7 +258,7 @@ Resources:
   HandleNewReportLambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
-      FunctionName: !Ref "HandleNewReportLambdaArn"
+      FunctionName: !ImportValue "HandleNewReportLambdaArn"
       Action: "lambda:InvokeFunction"
       Principal: "apigateway.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"

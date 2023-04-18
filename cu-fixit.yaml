@@ -1,0 +1,181 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  LambdaCodeSourceBucket:
+    Type: "String"
+  ReportsDomainName:
+    Type: "String"
+    Default: "reports"
+  PhotosBucketName:
+    Type: "String"
+    Default: "cu-fixit-photos"
+  ReportsTableName:
+    Type: "String"
+    Default: "reports"
+  NewReportQueueName:
+    Type: "String"
+    Default: "new-report-queue"
+  KeywordExtractionQueueName:
+    Type: "String"
+    Default: "keyword-extraction-queue"
+  HandleNewReportLambdaName:
+    Type: "String"
+    Default: "handle-new-report"
+  StoreAndIndexReportLambdaName:
+    Type: "String"
+    Default: "store-and-index-report"
+
+Resources:
+  ReportsDomain:
+    Type: "AWS::OpenSearchService::Domain"
+    Properties:
+      DomainName: !Ref "ReportsDomainName"
+      ClusterConfig:
+        InstanceType: "t3.small.search"
+        InstanceCount: 1
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 10
+        VolumeType: "gp2"
+
+  PhotosBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref "PhotosBucketName"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - "*"
+            AllowedMethods:
+              - "GET"
+              - "POST"
+            AllowedHeaders:
+              - "*"
+
+  ReportsTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Ref "ReportsTableName"
+      AttributeDefinitions:
+        - AttributeName: "reportID"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "reportID"
+          KeyType: "HASH"
+      BillingMode: "PROVISIONED"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  NewReportQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref "NewReportQueueName"
+
+  KeywordExtractionQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref "KeywordExtractionQueueName"
+
+  HandleNewReportLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "HandleNewReportLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "${HandleNewReportLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "HandleNewReportLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          photosBucketName: !Ref "PhotosBucketName"
+          newReportQueueUrl: !GetAtt "NewReportQueue.QueueUrl"
+
+  StoreAndIndexReportLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "StoreAndIndexReportLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "${StoreAndIndexReportLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "StoreAndIndexReportLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          reportsDomainEndpoint: !GetAtt "ReportsDomain.DomainEndpoint"
+          reportsTableName: !Ref "ReportsTableName"
+          keywordExtractionQueueUrl: !GetAtt "KeywordExtractionQueue.QueueUrl"
+
+  StoreAndIndexReportLambdaEventSourceMapping:
+    Type: "AWS::Lambda::EventSourceMapping"
+    Properties:
+      BatchSize: 1
+      EventSourceArn: !GetAtt "NewReportQueue.Arn"
+      FunctionName: !GetAtt "StoreAndIndexReportLambda.Arn"
+
+  HandleNewReportLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${AWS::StackName}-${HandleNewReportLambdaName}-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+
+  StoreAndIndexReportLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${AWS::StackName}-${StoreAndIndexReportLambdaName}-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+
+  HandleNewReportLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${HandleNewReportLambdaName}"
+
+  StoreAndIndexReportLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StoreAndIndexReportLambdaName}"
+
+Outputs:
+  HandleNewReportLambdaArn:
+    Value: !GetAtt "HandleNewReportLambda.Arn"
+    Export:
+      Name: "HandleNewReportLambdaArn"
+  StoreAndIndexReportLambdaArn:
+    Value: !GetAtt "StoreAndIndexReportLambda.Arn"
+    Export:
+      Name: "StoreAndIndexReportLambdaArn"
