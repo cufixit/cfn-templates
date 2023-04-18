@@ -166,6 +166,17 @@ Resources:
       EventSourceArn: !Ref "KeywordExtractionQueueArn"
       FunctionName: !GetAtt "ExtractKeywordsLambda.Arn"
 
+  # Lambda Permissions
+
+  ExtractPhotoLabelsLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !GetAtt "ExtractPhotoLabelsLambda.Arn"
+      Action: "lambda:InvokeFunction"
+      Principal: "s3.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:${AWS::Partition}:s3:::${PhotosBucketName}"
+
   # Lambda Execution Roles
 
   HandleNewReportLambdaRole:

@@ -10,6 +10,10 @@ Parameters:
   ReportsDomainName:
     Type: "String"
     Default: "reports"
+  ReportsDomainMasterUserName:
+    Type: "String"
+  ReportsDomainMasterUserPassword:
+    Type: "String"
   ReportsTableName:
     Type: "String"
     Default: "reports"
@@ -35,6 +39,20 @@ Resources:
         EBSEnabled: true
         VolumeSize: 10
         VolumeType: "gp2"
+      AccessPolicies:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: "*"
+            Action: "es:*"
+            Resource: !Sub "arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${ReportsDomainName}/*"
+      AdvancedSecurityOptions:
+        Enabled: true
+        InternalUserDatabaseEnabled: true
+        MasterUserOptions:
+          MasterUserName: !Ref "ReportsDomainMasterUserName"
+          MasterUserPassword: !Ref "ReportsDomainMasterUserPassword"
 
   ReportsTable:
     Type: "AWS::DynamoDB::Table"
@@ -64,6 +82,10 @@ Resources:
               - "POST"
             AllowedHeaders:
               - "*"
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Function: !GetAtt "LambdaStack.Outputs.ExtractPhotoLabelsLambdaArn"
 
   NewReportQueue:
     Type: "AWS::SQS::Queue"
@@ -102,7 +124,6 @@ Resources:
         HandleNewReportLambdaArn: !GetAtt "LambdaStack.Outputs.HandleNewReportLambdaArn"
         SearchReportUserLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportUserLambdaArn"
         SearchReportAdminLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportAdminLambdaArn"
-
 Outputs:
   ApiId:
     Description: "API ID"

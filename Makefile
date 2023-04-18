@@ -1,3 +1,4 @@
+include ./.env
 include ./makefile.env
 
 STACK_NAME=cu-fixit
@@ -10,7 +11,8 @@ packaged.yaml: main.yaml api.yaml lambda.yaml
 .PHONY: deploy
 deploy: packaged.yaml
 	aws cloudformation deploy --template-file packaged.yaml --stack-name $(STACK_NAME) --capabilities CAPABILITY_NAMED_IAM \
-	--parameter-overrides LambdaCodeSourceBucket=$(LAMBDA_CODE_SOURCE_BUCKET) CognitoUserPoolArn=$(COGNITO_USER_POOL_ARN) CognitoAdminPoolArn=$(COGNITO_ADMIN_POOL_ARN)
+	--parameter-overrides LambdaCodeSourceBucket=$(LAMBDA_CODE_SOURCE_BUCKET) CognitoUserPoolArn=$(COGNITO_USER_POOL_ARN) CognitoAdminPoolArn=$(COGNITO_ADMIN_POOL_ARN) \
+	ReportsDomainMasterUserName=$(REPORTS_DOMAIN_MASTER_USER_NAME) ReportsDomainMasterUserPassword=$(REPORTS_DOMAIN_MASTER_USER_PASSWORD)
 
 .PHONY: deploy-api
 deploy-api: deploy
