@@ -66,8 +66,56 @@ Resources:
           KeyType: "HASH"
       BillingMode: "PROVISIONED"
       ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 5
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  ReportsTableWriteCapacityScalableTarget:
+    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+    DependsOn: "ReportsTable"
+    Properties:
+      MaxCapacity: 5
+      MinCapacity: 1
+      ResourceId: !Sub "table/${ReportsTableName}"
+      RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
+      ScalableDimension: "dynamodb:table:WriteCapacityUnits"
+      ServiceNamespace: "dynamodb"
+
+  ReportsTableWriteScalingPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
+    Properties:
+      PolicyName: !Sub "${ReportsTableName}-write-scaling-policy"
+      PolicyType: "TargetTrackingScaling"
+      ScalingTargetId: !Ref "ReportsTableWriteCapacityScalableTarget"
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: "DynamoDBWriteCapacityUtilization"
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        TargetValue: 80
+
+  ReportsTableReadCapacityScalableTarget:
+    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+    DependsOn: "ReportsTable"
+    Properties:
+      MaxCapacity: 5
+      MinCapacity: 1
+      ResourceId: !Sub "table/${ReportsTableName}"
+      RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
+      ScalableDimension: "dynamodb:table:ReadCapacityUnits"
+      ServiceNamespace: "dynamodb"
+
+  ReportsTableReadScalingPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
+    Properties:
+      PolicyName: !Sub "${ReportsTableName}-read-scaling-policy"
+      PolicyType: "TargetTrackingScaling"
+      ScalingTargetId: !Ref "ReportsTableReadCapacityScalableTarget"
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: "DynamoDBReadCapacityUtilization"
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        TargetValue: 80
 
   PhotosBucket:
     Type: "AWS::S3::Bucket"
@@ -114,8 +162,7 @@ Resources:
 
   ApiStack:
     Type: "AWS::CloudFormation::Stack"
-    DependsOn:
-      - "LambdaStack"
+    DependsOn: "LambdaStack"
     Properties:
       TemplateURL: "api.yaml"
       Parameters:
@@ -124,6 +171,7 @@ Resources:
         HandleNewReportLambdaArn: !GetAtt "LambdaStack.Outputs.HandleNewReportLambdaArn"
         SearchReportUserLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportUserLambdaArn"
         SearchReportAdminLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportAdminLambdaArn"
+
 Outputs:
   ApiId:
     Description: "API ID"
