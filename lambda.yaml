@@ -9,29 +9,38 @@ Parameters:
     Type: "String"
   ReportsTableName:
     Type: "String"
+  ReportsTableStreamArn:
+    Type: "String"
   PhotosBucketName:
     Type: "String"
-  NewReportQueueArn:
+  ProcessReportQueueArn:
     Type: "String"
-  NewReportQueueUrl:
+  ProcessReportQueueUrl:
     Type: "String"
-  KeywordExtractionQueueArn:
+  DetectKeywordsQueueArn:
     Type: "String"
-  KeywordExtractionQueueUrl:
+  DetectKeywordsQueueUrl:
+    Type: "String"
+  DetectPhotoLabelsQueueArn:
+    Type: "String"
+  DetectPhotoLabelsQueueUrl:
     Type: "String"
 
-  HandleNewReportLambdaName:
+  PostReportLambdaName:
     Type: "String"
-    Default: "handle-new-report"
-  StoreAndIndexReportLambdaName:
+    Default: "post-report"
+  StoreReportLambdaName:
     Type: "String"
-    Default: "store-and-index-report"
-  ExtractKeywordsLambdaName:
+    Default: "store-report"
+  IndexReportLambdaName:
     Type: "String"
-    Default: "extract-keywords"
-  ExtractPhotoLabelsLambdaName:
+    Default: "index-report"
+  DetectKeywordsLambdaName:
     Type: "String"
-    Default: "extract-photo-labels"
+    Default: "detect-keywords"
+  DetectPhotoLabelsLambdaName:
+    Type: "String"
+    Default: "detect-photo-labels"
   SearchReportUserLambdaName:
     Type: "String"
     Default: "search-report-user"
@@ -42,71 +51,88 @@ Parameters:
 Resources:
   # Lambda Functions
 
-  HandleNewReportLambda:
+  PostReportLambda:
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: !Ref "HandleNewReportLambdaName"
+      FunctionName: !Ref "PostReportLambdaName"
       Handler: "lambda_function.lambda_handler"
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${HandleNewReportLambdaName}.zip"
+        S3Key: !Sub "${PostReportLambdaName}.zip"
       PackageType: "Zip"
-      Role: !GetAtt "HandleNewReportLambdaRole.Arn"
+      Role: !GetAtt "PostReportLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
           photosBucketName: !Ref "PhotosBucketName"
-          newReportQueueUrl: !Ref "NewReportQueueUrl"
+          processReportQueueUrl: !Ref "ProcessReportQueueUrl"
 
-  StoreAndIndexReportLambda:
+  StoreReportLambda:
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: !Ref "StoreAndIndexReportLambdaName"
+      FunctionName: !Ref "StoreReportLambdaName"
       Handler: "lambda_function.lambda_handler"
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${StoreAndIndexReportLambdaName}.zip"
+        S3Key: !Sub "${StoreReportLambdaName}.zip"
       PackageType: "Zip"
-      Role: !GetAtt "StoreAndIndexReportLambdaRole.Arn"
-      MemorySize: 128
-      Timeout: 30
-      Environment:
-        Variables:
-          reportsDomainEndpoint: !Ref "ReportsDomainEndpoint"
-          reportsTableName: !Ref "ReportsTableName"
-          keywordExtractionQueueUrl: !Ref "KeywordExtractionQueueUrl"
-
-  ExtractKeywordsLambda:
-    Type: "AWS::Lambda::Function"
-    Properties:
-      FunctionName: !Ref "ExtractKeywordsLambdaName"
-      Handler: "lambda_function.lambda_handler"
-      Runtime: "python3.9"
-      Code:
-        S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${ExtractKeywordsLambdaName}.zip"
-      PackageType: "Zip"
-      Role: !GetAtt "ExtractKeywordsLambdaRole.Arn"
+      Role: !GetAtt "StoreReportLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
           reportsTableName: !Ref "ReportsTableName"
+          detectKeywordsQueueUrl: !Ref "DetectKeywordsQueueUrl"
 
-  ExtractPhotoLabelsLambda:
+  IndexReportLambda:
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: !Ref "ExtractPhotoLabelsLambdaName"
+      FunctionName: !Ref "IndexReportLambdaName"
       Handler: "lambda_function.lambda_handler"
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${ExtractPhotoLabelsLambdaName}.zip"
+        S3Key: !Sub "${IndexReportLambdaName}.zip"
       PackageType: "Zip"
-      Role: !GetAtt "ExtractPhotoLabelsLambdaRole.Arn"
+      Role: !GetAtt "IndexReportLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          reportsDomainHost: !Ref "ReportsDomainEndpoint"
+          reportsDomainPort: 443
+
+  DetectKeywordsLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "DetectKeywordsLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "${DetectKeywordsLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "DetectKeywordsLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          reportsTableName: !Ref "ReportsTableName"
+
+  DetectPhotoLabelsLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "DetectPhotoLabelsLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "${DetectPhotoLabelsLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "DetectPhotoLabelsLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
@@ -152,26 +178,34 @@ Resources:
 
   # Lambda Event Source Mappings
 
-  StoreAndIndexReportLambdaEventSourceMapping:
+  StoreReportLambdaEventSourceMapping:
     Type: "AWS::Lambda::EventSourceMapping"
     Properties:
       BatchSize: 1
-      EventSourceArn: !Ref "NewReportQueueArn"
-      FunctionName: !GetAtt "StoreAndIndexReportLambda.Arn"
+      EventSourceArn: !Ref "ProcessReportQueueArn"
+      FunctionName: !GetAtt "StoreReportLambda.Arn"
 
-  ExtractKeywordsLambdaEventSourceMapping:
+  IndexReportLambdaEventSourceMapping:
     Type: "AWS::Lambda::EventSourceMapping"
     Properties:
       BatchSize: 1
-      EventSourceArn: !Ref "KeywordExtractionQueueArn"
-      FunctionName: !GetAtt "ExtractKeywordsLambda.Arn"
+      EventSourceArn: !Ref "ReportsTableStreamArn"
+      FunctionName: !GetAtt "IndexReportLambda.Arn"
+      StartingPosition: "LATEST"
+
+  DetectKeywordsLambdaEventSourceMapping:
+    Type: "AWS::Lambda::EventSourceMapping"
+    Properties:
+      BatchSize: 1
+      EventSourceArn: !Ref "DetectKeywordsQueueArn"
+      FunctionName: !GetAtt "DetectKeywordsLambda.Arn"
 
   # Lambda Permissions
 
-  ExtractPhotoLabelsLambdaPermission:
+  DetectPhotoLabelsLambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
-      FunctionName: !GetAtt "ExtractPhotoLabelsLambda.Arn"
+      FunctionName: !GetAtt "DetectPhotoLabelsLambda.Arn"
       Action: "lambda:InvokeFunction"
       Principal: "s3.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"
@@ -179,11 +213,11 @@ Resources:
 
   # Lambda Execution Roles
 
-  HandleNewReportLambdaRole:
+  PostReportLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
       Path: "/"
-      RoleName: !Sub "${StackName}-${HandleNewReportLambdaName}-role"
+      RoleName: !Sub "${StackName}-${PostReportLambdaName}-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -198,11 +232,11 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
         - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
 
-  StoreAndIndexReportLambdaRole:
+  StoreReportLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
       Path: "/"
-      RoleName: !Sub "${StackName}-${StoreAndIndexReportLambdaName}-role"
+      RoleName: !Sub "${StackName}-${StoreReportLambdaName}-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -215,14 +249,32 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
         - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
-        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 
-  ExtractKeywordsLambdaRole:
+  IndexReportLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
       Path: "/"
-      RoleName: !Sub "${StackName}-${ExtractKeywordsLambdaName}-role"
+      RoleName: !Sub "${StackName}-${IndexReportLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+
+  DetectKeywordsLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${DetectKeywordsLambdaName}-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -238,11 +290,11 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/ComprehendFullAccess"
 
-  ExtractPhotoLabelsLambdaRole:
+  DetectPhotoLabelsLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
       Path: "/"
-      RoleName: !Sub "${StackName}-${ExtractPhotoLabelsLambdaName}-role"
+      RoleName: !Sub "${StackName}-${DetectPhotoLabelsLambdaName}-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -300,25 +352,30 @@ Resources:
 
   # Lambda Log Groups
 
-  HandleNewReportLambdaLogGroup:
+  PostReportLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${HandleNewReportLambdaName}"
+      LogGroupName: !Sub "/aws/lambda/${PostReportLambdaName}"
 
-  StoreAndIndexReportLambdaLogGroup:
+  StoreReportLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${StoreAndIndexReportLambdaName}"
+      LogGroupName: !Sub "/aws/lambda/${StoreReportLambdaName}"
 
-  ExtractKeywordsLambdaLogGroup:
+  IndexReportLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${ExtractKeywordsLambdaName}"
+      LogGroupName: !Sub "/aws/lambda/${IndexReportLambdaName}"
 
-  ExtractPhotoLabelsLambdaLogGroup:
+  DetectKeywordsLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${ExtractPhotoLabelsLambdaName}"
+      LogGroupName: !Sub "/aws/lambda/${DetectKeywordsLambdaName}"
+
+  DetectPhotoLabelsLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${DetectPhotoLabelsLambdaName}"
 
   SearchReportUserLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
@@ -331,22 +388,26 @@ Resources:
       LogGroupName: !Sub "/aws/lambda/${SearchReportAdminLambdaName}"
 
 Outputs:
-  HandleNewReportLambdaArn:
-    Value: !GetAtt "HandleNewReportLambda.Arn"
+  PostReportLambdaArn:
+    Value: !GetAtt "PostReportLambda.Arn"
     Export:
-      Name: "HandleNewReportLambdaArn"
-  StoreAndIndexReportLambdaArn:
-    Value: !GetAtt "StoreAndIndexReportLambda.Arn"
+      Name: "PostReportLambdaArn"
+  StoreReportLambdaArn:
+    Value: !GetAtt "StoreReportLambda.Arn"
     Export:
-      Name: "StoreAndIndexReportLambdaArn"
-  ExtractKeywordsLambdaArn:
-    Value: !GetAtt "ExtractKeywordsLambda.Arn"
+      Name: "StoreReportLambdaArn"
+  IndexReportLambdaArn:
+    Value: !GetAtt "IndexReportLambda.Arn"
     Export:
-      Name: "ExtractKeywordsLambdaArn"
-  ExtractPhotoLabelsLambdaArn:
-    Value: !GetAtt "ExtractPhotoLabelsLambda.Arn"
+      Name: "IndexReportLambdaArn"
+  DetectKeywordsLambdaArn:
+    Value: !GetAtt "DetectKeywordsLambda.Arn"
     Export:
-      Name: "ExtractPhotoLabelsLambdaArn"
+      Name: "DetectKeywordsLambdaArn"
+  DetectPhotoLabelsLambdaArn:
+    Value: !GetAtt "DetectPhotoLabelsLambda.Arn"
+    Export:
+      Name: "DetectPhotoLabelsLambdaArn"
   SearchReportUserLambdaArn:
     Value: !GetAtt "SearchReportUserLambda.Arn"
     Export:

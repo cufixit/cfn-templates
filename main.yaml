@@ -20,12 +20,12 @@ Parameters:
   PhotosBucketName:
     Type: "String"
     Default: "cu-fixit-photos"
-  NewReportQueueName:
+  ProcessReportQueueName:
     Type: "String"
-    Default: "new-report-queue"
-  KeywordExtractionQueueName:
+    Default: "process-report-queue"
+  DetectKeywordsQueueName:
     Type: "String"
-    Default: "keyword-extraction-queue"
+    Default: "detect-key-phrases-queue"
 
 Resources:
   ReportsDomain:
@@ -68,6 +68,8 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
+      StreamSpecification:
+        StreamViewType: "NEW_IMAGE"
 
   ReportsTableWriteCapacityScalableTarget:
     Type: "AWS::ApplicationAutoScaling::ScalableTarget"
@@ -133,17 +135,17 @@ Resources:
       NotificationConfiguration:
         LambdaConfigurations:
           - Event: "s3:ObjectCreated:*"
-            Function: !GetAtt "LambdaStack.Outputs.ExtractPhotoLabelsLambdaArn"
+            Function: !GetAtt "LambdaStack.Outputs.DetectPhotoLabelsLambdaArn"
 
-  NewReportQueue:
+  ProcessReportQueue:
     Type: "AWS::SQS::Queue"
     Properties:
-      QueueName: !Ref "NewReportQueueName"
+      QueueName: !Ref "ProcessReportQueueName"
 
-  KeywordExtractionQueue:
+  DetectKeywordsQueue:
     Type: "AWS::SQS::Queue"
     Properties:
-      QueueName: !Ref "KeywordExtractionQueueName"
+      QueueName: !Ref "DetectKeywordsQueueName"
 
   LambdaStack:
     Type: AWS::CloudFormation::Stack
@@ -154,11 +156,12 @@ Resources:
         LambdaCodeSourceBucket: !Ref "LambdaCodeSourceBucket"
         ReportsDomainEndpoint: !GetAtt "ReportsDomain.DomainEndpoint"
         ReportsTableName: !Ref "ReportsTableName"
+        ReportsTableStreamArn: !GetAtt "ReportsTable.StreamArn"
         PhotosBucketName: !Ref "PhotosBucketName"
-        NewReportQueueArn: !GetAtt "NewReportQueue.Arn"
-        NewReportQueueUrl: !GetAtt "NewReportQueue.QueueUrl"
-        KeywordExtractionQueueArn: !GetAtt "KeywordExtractionQueue.Arn"
-        KeywordExtractionQueueUrl: !GetAtt "KeywordExtractionQueue.QueueUrl"
+        ProcessReportQueueArn: !GetAtt "ProcessReportQueue.Arn"
+        ProcessReportQueueUrl: !GetAtt "ProcessReportQueue.QueueUrl"
+        DetectKeywordsQueueArn: !GetAtt "DetectKeywordsQueue.Arn"
+        DetectKeywordsQueueUrl: !GetAtt "DetectKeywordsQueue.QueueUrl"
 
   ApiStack:
     Type: "AWS::CloudFormation::Stack"
@@ -168,7 +171,7 @@ Resources:
       Parameters:
         CognitoUserPoolArn: !Ref "CognitoUserPoolArn"
         CognitoAdminPoolArn: !Ref "CognitoAdminPoolArn"
-        HandleNewReportLambdaArn: !GetAtt "LambdaStack.Outputs.HandleNewReportLambdaArn"
+        PostReportLambdaArn: !GetAtt "LambdaStack.Outputs.PostReportLambdaArn"
         SearchReportUserLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportUserLambdaArn"
         SearchReportAdminLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportAdminLambdaArn"
 
