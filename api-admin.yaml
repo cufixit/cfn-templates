@@ -1,13 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Parameters:
-  CognitoUserPoolArn:
-    Type: "String"
   CognitoAdminPoolArn:
     Type: "String"
-  HandleNewReportLambdaArn:
-    Type: "String"
-  SearchReportUserLambdaArn:
+  PostGroupLambdaArn:
     Type: "String"
   SearchReportAdminLambdaArn:
     Type: "String"
@@ -16,44 +12,29 @@ Resources:
   Api:
     Type: "AWS::ApiGateway::RestApi"
     Properties:
-      Name: !Sub "${AWS::StackName}-api"
+      Name: !Sub "${AWS::StackName}-admin-api"
       EndpointConfiguration:
         Types:
           - "REGIONAL"
-
-  # API Deployment
 
   ApiDeployment:
     Type: "AWS::ApiGateway::Deployment"
     DependsOn:
       - "ApiReportsGetMethod"
-      - "ApiReportsPostMethod"
       - "ApiReportsOptionsMethod"
       - "ApiReportIdGetMethod"
+      - "ApiReportIdDeleteMethod"
       - "ApiReportIdOptionsMethod"
-      - "ApiAdminReportsGetMethod"
-      - "ApiAdminReportsOptionsMethod"
-      - "ApiAdminReportIdGetMethod"
-      - "ApiAdminReportIdDeleteMethod"
-      - "ApiAdminReportIdOptionsMethod"
+      - "ApiGroupsPostMethod"
+      - "ApiGroupsOptionsMethod"
     Properties:
       RestApiId: !Ref "Api"
       StageName: "dev"
 
-  CognitoUserAuthorizer:
+  CognitoAuthorizer:
     Type: "AWS::ApiGateway::Authorizer"
     Properties:
-      Name: !Sub "${AWS::StackName}-cognito-user-authorizer"
-      RestApiId: !Ref "Api"
-      Type: "COGNITO_USER_POOLS"
-      IdentitySource: "method.request.header.Authorization"
-      ProviderARNs:
-        - !Ref "CognitoUserPoolArn"
-
-  CognitoAdminAuthorizer:
-    Type: "AWS::ApiGateway::Authorizer"
-    Properties:
-      Name: !Sub "${AWS::StackName}-cognito-admin-authorizer"
+      Name: !Sub "${AWS::StackName}-cognito-authorizer"
       RestApiId: !Ref "Api"
       Type: "COGNITO_USER_POOLS"
       IdentitySource: "method.request.header.Authorization"
@@ -74,32 +55,18 @@ Resources:
     Properties:
       ApiKeyRequired: false
       AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref "CognitoUserAuthorizer"
+      AuthorizerId: !Ref "CognitoAuthorizer"
       HttpMethod: "GET"
       RestApiId: !Ref "Api"
       ResourceId: !Ref "ApiReportsResource"
+      RequestParameters:
+        "method.request.querystring.q": true
       Integration:
         Type: "AWS_PROXY"
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportUserLambdaArn}/invocations"
-
-  ApiReportsPostMethod:
-    Type: "AWS::ApiGateway::Method"
-    Properties:
-      ApiKeyRequired: false
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref "CognitoUserAuthorizer"
-      HttpMethod: "POST"
-      RestApiId: !Ref "Api"
-      ResourceId: !Ref "ApiReportsResource"
-      Integration:
-        Type: "AWS_PROXY"
-        IntegrationHttpMethod: "POST"
-        IntegrationResponses:
-          - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandleNewReportLambdaArn}/invocations"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
 
   ApiReportsOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -123,7 +90,7 @@ Resources:
           - StatusCode: 200
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         PassthroughBehavior: "WHEN_NO_MATCH"
         RequestTemplates:
@@ -141,7 +108,7 @@ Resources:
     Properties:
       ApiKeyRequired: false
       AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref "CognitoUserAuthorizer"
+      AuthorizerId: !Ref "CognitoAuthorizer"
       HttpMethod: "GET"
       RestApiId: !Ref "Api"
       ResourceId: !Ref "ApiReportIdResource"
@@ -152,7 +119,25 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportUserLambdaArn}/invocations"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
+
+  ApiReportIdDeleteMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref "CognitoAuthorizer"
+      HttpMethod: "DELETE"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiReportIdResource"
+      RequestParameters:
+        "method.request.path.reportId": true
+      Integration:
+        Type: "AWS_PROXY"
+        IntegrationHttpMethod: "POST"
+        IntegrationResponses:
+          - StatusCode: 200
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
 
   ApiReportIdOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -176,162 +161,66 @@ Resources:
           - StatusCode: 200
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        PassthroughBehavior: "WHEN_NO_MATCH"
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-
-  ApiAdminResource:
-    Type: "AWS::ApiGateway::Resource"
-    Properties:
-      ParentId: !GetAtt "Api.RootResourceId"
-      PathPart: "admin"
-      RestApiId: !Ref "Api"
-
-  ApiAdminReportsResource:
-    Type: "AWS::ApiGateway::Resource"
-    Properties:
-      ParentId: !Ref "ApiAdminResource"
-      PathPart: "reports"
-      RestApiId: !Ref "Api"
-
-  ApiAdminReportsGetMethod:
-    Type: "AWS::ApiGateway::Method"
-    Properties:
-      ApiKeyRequired: false
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref "CognitoAdminAuthorizer"
-      HttpMethod: "GET"
-      RestApiId: !Ref "Api"
-      ResourceId: !Ref "ApiAdminReportsResource"
-      RequestParameters:
-        "method.request.querystring.q": true
-      Integration:
-        Type: "AWS_PROXY"
-        IntegrationHttpMethod: "POST"
-        IntegrationResponses:
-          - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
-
-  ApiAdminReportsOptionsMethod:
-    Type: "AWS::ApiGateway::Method"
-    Properties:
-      ApiKeyRequired: false
-      AuthorizationType: "NONE"
-      HttpMethod: "OPTIONS"
-      RestApiId: !Ref "Api"
-      ResourceId: !Ref "ApiAdminReportsResource"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Origin: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Headers: true
-          ResponseModels:
-            application/json: "Empty"
-      Integration:
-        Type: "MOCK"
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        PassthroughBehavior: "WHEN_NO_MATCH"
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-
-  ApiAdminReportIdResource:
-    Type: "AWS::ApiGateway::Resource"
-    Properties:
-      ParentId: !Ref "ApiAdminReportsResource"
-      PathPart: "{reportId}"
-      RestApiId: !Ref "Api"
-
-  ApiAdminReportIdGetMethod:
-    Type: "AWS::ApiGateway::Method"
-    Properties:
-      ApiKeyRequired: false
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref "CognitoAdminAuthorizer"
-      HttpMethod: "GET"
-      RestApiId: !Ref "Api"
-      ResourceId: !Ref "ApiAdminReportIdResource"
-      RequestParameters:
-        "method.request.path.reportId": true
-      Integration:
-        Type: "AWS_PROXY"
-        IntegrationHttpMethod: "POST"
-        IntegrationResponses:
-          - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
-
-  ApiAdminReportIdDeleteMethod:
-    Type: "AWS::ApiGateway::Method"
-    Properties:
-      ApiKeyRequired: false
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref "CognitoAdminAuthorizer"
-      HttpMethod: "DELETE"
-      RestApiId: !Ref "Api"
-      ResourceId: !Ref "ApiAdminReportIdResource"
-      RequestParameters:
-        "method.request.path.reportId": true
-      Integration:
-        Type: "AWS_PROXY"
-        IntegrationHttpMethod: "POST"
-        IntegrationResponses:
-          - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
-
-  ApiAdminReportIdOptionsMethod:
-    Type: "AWS::ApiGateway::Method"
-    Properties:
-      ApiKeyRequired: false
-      AuthorizationType: "NONE"
-      HttpMethod: "OPTIONS"
-      RestApiId: !Ref "Api"
-      ResourceId: !Ref "ApiAdminReportIdResource"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Origin: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Headers: true
-          ResponseModels:
-            application/json: "Empty"
-      Integration:
-        Type: "MOCK"
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'*'"
               method.response.header.Access-Control-Allow-Methods: "'GET,DELETE,OPTIONS'"
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         PassthroughBehavior: "WHEN_NO_MATCH"
         RequestTemplates:
           application/json: '{"statusCode": 200}'
 
+  # API Groups Resource
+
+  ApiGroupsResource:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      ParentId: !GetAtt "Api.RootResourceId"
+      PathPart: "groups"
+      RestApiId: !Ref "Api"
+
+  ApiGroupsPostMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref "CognitoAuthorizer"
+      HttpMethod: "POST"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiGroupsResource"
+      Integration:
+        Type: "AWS_PROXY"
+        IntegrationHttpMethod: "POST"
+        IntegrationResponses:
+          - StatusCode: 200
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PostGroupLambdaArn}/invocations"
+
+  ApiGroupsOptionsMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "NONE"
+      HttpMethod: "OPTIONS"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiGroupsResource"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+          ResponseModels:
+            application/json: "Empty"
+      Integration:
+        Type: "MOCK"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+
   # Lambda Invocation Permissions
-
-  SearchReportUserLambdaPermission:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      FunctionName: !Ref "SearchReportUserLambdaArn"
-      Action: "lambda:InvokeFunction"
-      Principal: "apigateway.amazonaws.com"
-      SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/reports*"
-
-  HandleNewReportLambdaPermission:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      FunctionName: !Ref "HandleNewReportLambdaArn"
-      Action: "lambda:InvokeFunction"
-      Principal: "apigateway.amazonaws.com"
-      SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/POST/reports"
 
   SearchReportAdminLambdaPermission:
     Type: "AWS::Lambda::Permission"
@@ -340,7 +229,16 @@ Resources:
       Action: "lambda:InvokeFunction"
       Principal: "apigateway.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/*/admin/reports*"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/*/reports*"
+
+  PostGroupLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref "PostGroupLambdaArn"
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/POST/groups"
 
 Outputs:
   ApiId:

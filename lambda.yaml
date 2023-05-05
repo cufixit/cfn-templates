@@ -17,13 +17,13 @@ Parameters:
     Type: "String"
   ProcessReportQueueUrl:
     Type: "String"
+  ProcessGroupQueueArn:
+    Type: "String"
+  ProcessGroupQueueUrl:
+    Type: "String"
   DetectKeywordsQueueArn:
     Type: "String"
   DetectKeywordsQueueUrl:
-    Type: "String"
-  DetectPhotoLabelsQueueArn:
-    Type: "String"
-  DetectPhotoLabelsQueueUrl:
     Type: "String"
 
   PostReportLambdaName:
@@ -32,9 +32,15 @@ Parameters:
   StoreReportLambdaName:
     Type: "String"
     Default: "store-report"
-  IndexReportLambdaName:
+  PostGroupLambdaName:
     Type: "String"
-    Default: "index-report"
+    Default: "post-group"
+  StoreGroupLambdaName:
+    Type: "String"
+    Default: "store-group"
+  UpdateIndexLambdaName:
+    Type: "String"
+    Default: "update-index"
   DetectKeywordsLambdaName:
     Type: "String"
     Default: "detect-keywords"
@@ -87,17 +93,51 @@ Resources:
           reportsTableName: !Ref "ReportsTableName"
           detectKeywordsQueueUrl: !Ref "DetectKeywordsQueueUrl"
 
-  IndexReportLambda:
+  PostGroupLambda:
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: !Ref "IndexReportLambdaName"
+      FunctionName: !Ref "PostGroupLambdaName"
       Handler: "lambda_function.lambda_handler"
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${IndexReportLambdaName}.zip"
+        S3Key: !Sub "${PostGroupLambdaName}.zip"
       PackageType: "Zip"
-      Role: !GetAtt "IndexReportLambdaRole.Arn"
+      Role: !GetAtt "PostReportLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          processGroupQueueUrl: !Ref "ProcessGroupQueueUrl"
+
+  StoreGroupLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "StoreGroupLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "${StoreGroupLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "StoreReportLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          reportsTableName: !Ref "ReportsTableName"
+
+  UpdateIndexLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "UpdateIndexLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "${UpdateIndexLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "UpdateIndexLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
@@ -185,12 +225,19 @@ Resources:
       EventSourceArn: !Ref "ProcessReportQueueArn"
       FunctionName: !GetAtt "StoreReportLambda.Arn"
 
-  IndexReportLambdaEventSourceMapping:
+  StoreGroupLambdaEventSourceMapping:
+    Type: "AWS::Lambda::EventSourceMapping"
+    Properties:
+      BatchSize: 1
+      EventSourceArn: !Ref "ProcessGroupQueueArn"
+      FunctionName: !GetAtt "StoreGroupLambda.Arn"
+
+  UpdateIndexLambdaEventSourceMapping:
     Type: "AWS::Lambda::EventSourceMapping"
     Properties:
       BatchSize: 1
       EventSourceArn: !Ref "ReportsTableStreamArn"
-      FunctionName: !GetAtt "IndexReportLambda.Arn"
+      FunctionName: !GetAtt "UpdateIndexLambda.Arn"
       StartingPosition: "LATEST"
 
   DetectKeywordsLambdaEventSourceMapping:
@@ -251,11 +298,11 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 
-  IndexReportLambdaRole:
+  PostGroupLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
       Path: "/"
-      RoleName: !Sub "${StackName}-${IndexReportLambdaName}-role"
+      RoleName: !Sub "${StackName}-${PostGroupLambdaName}-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -267,7 +314,44 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+
+  StoreGroupLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${StoreGroupLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+
+  UpdateIndexLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${UpdateIndexLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
 
   DetectKeywordsLambdaRole:
@@ -362,10 +446,20 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${StoreReportLambdaName}"
 
-  IndexReportLambdaLogGroup:
+  PostGroupLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${IndexReportLambdaName}"
+      LogGroupName: !Sub "/aws/lambda/${PostGroupLambdaName}"
+
+  StoreGroupLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StoreGroupLambdaName}"
+
+  UpdateIndexLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${UpdateIndexLambdaName}"
 
   DetectKeywordsLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
@@ -396,10 +490,18 @@ Outputs:
     Value: !GetAtt "StoreReportLambda.Arn"
     Export:
       Name: "StoreReportLambdaArn"
-  IndexReportLambdaArn:
-    Value: !GetAtt "IndexReportLambda.Arn"
+  PostGroupLambdaArn:
+    Value: !GetAtt "PostGroupLambda.Arn"
     Export:
-      Name: "IndexReportLambdaArn"
+      Name: "PostGroupLambdaArn"
+  StoreGroupLambdaArn:
+    Value: !GetAtt "StoreGroupLambda.Arn"
+    Export:
+      Name: "StoreGroupLambdaArn"
+  UpdateIndexLambdaArn:
+    Value: !GetAtt "UpdateIndexLambda.Arn"
+    Export:
+      Name: "UpdateIndexLambdaArn"
   DetectKeywordsLambdaArn:
     Value: !GetAtt "DetectKeywordsLambda.Arn"
     Export:

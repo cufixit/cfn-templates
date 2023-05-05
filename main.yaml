@@ -23,6 +23,9 @@ Parameters:
   ProcessReportQueueName:
     Type: "String"
     Default: "process-report-queue"
+  ProcessGroupQueueName:
+    Type: "String"
+    Default: "process-group-queue"
   DetectKeywordsQueueName:
     Type: "String"
     Default: "detect-key-phrases-queue"
@@ -47,6 +50,12 @@ Resources:
               AWS: "*"
             Action: "es:*"
             Resource: !Sub "arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${ReportsDomainName}/*"
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+      EncryptionAtRestOptions:
+        Enabled: true
+      DomainEndpointOptions:
+        EnforceHTTPS: true
       AdvancedSecurityOptions:
         Enabled: true
         InternalUserDatabaseEnabled: true
@@ -59,11 +68,25 @@ Resources:
     Properties:
       TableName: !Ref "ReportsTableName"
       AttributeDefinitions:
-        - AttributeName: "reportID"
+        - AttributeName: "ID"
+          AttributeType: "S"
+        - AttributeName: "groupID"
           AttributeType: "S"
       KeySchema:
-        - AttributeName: "reportID"
+        - AttributeName: "ID"
           KeyType: "HASH"
+      GlobalSecondaryIndexes:
+        - IndexName: "groupID-index"
+          KeySchema:
+            - AttributeName: "groupID"
+              KeyType: "HASH"
+            - AttributeName: "ID"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
       BillingMode: "PROVISIONED"
       ProvisionedThroughput:
         ReadCapacityUnits: 1
@@ -142,13 +165,18 @@ Resources:
     Properties:
       QueueName: !Ref "ProcessReportQueueName"
 
+  ProcessGroupQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref "ProcessGroupQueueName"
+
   DetectKeywordsQueue:
     Type: "AWS::SQS::Queue"
     Properties:
       QueueName: !Ref "DetectKeywordsQueueName"
 
   LambdaStack:
-    Type: AWS::CloudFormation::Stack
+    Type: "AWS::CloudFormation::Stack"
     Properties:
       TemplateURL: "lambda.yaml"
       Parameters:
@@ -160,22 +188,35 @@ Resources:
         PhotosBucketName: !Ref "PhotosBucketName"
         ProcessReportQueueArn: !GetAtt "ProcessReportQueue.Arn"
         ProcessReportQueueUrl: !GetAtt "ProcessReportQueue.QueueUrl"
+        ProcessGroupQueueArn: !GetAtt "ProcessGroupQueue.Arn"
+        ProcessGroupQueueUrl: !GetAtt "ProcessGroupQueue.QueueUrl"
         DetectKeywordsQueueArn: !GetAtt "DetectKeywordsQueue.Arn"
         DetectKeywordsQueueUrl: !GetAtt "DetectKeywordsQueue.QueueUrl"
 
-  ApiStack:
+  UserApiStack:
     Type: "AWS::CloudFormation::Stack"
     DependsOn: "LambdaStack"
     Properties:
-      TemplateURL: "api.yaml"
+      TemplateURL: "api-user.yaml"
       Parameters:
         CognitoUserPoolArn: !Ref "CognitoUserPoolArn"
-        CognitoAdminPoolArn: !Ref "CognitoAdminPoolArn"
         PostReportLambdaArn: !GetAtt "LambdaStack.Outputs.PostReportLambdaArn"
         SearchReportUserLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportUserLambdaArn"
+
+  AdminApiStack:
+    Type: "AWS::CloudFormation::Stack"
+    DependsOn: "LambdaStack"
+    Properties:
+      TemplateURL: "api-admin.yaml"
+      Parameters:
+        CognitoAdminPoolArn: !Ref "CognitoAdminPoolArn"
+        PostGroupLambdaArn: !GetAtt "LambdaStack.Outputs.PostGroupLambdaArn"
         SearchReportAdminLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportAdminLambdaArn"
 
 Outputs:
-  ApiId:
-    Description: "API ID"
-    Value: !GetAtt "ApiStack.Outputs.ApiId"
+  UserApiId:
+    Description: "User API ID"
+    Value: !GetAtt "UserApiStack.Outputs.ApiId"
+  AdminApiId:
+    Description: "Admin API ID"
+    Value: !GetAtt "AdminApiStack.Outputs.ApiId"
