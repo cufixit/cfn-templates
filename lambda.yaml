@@ -47,6 +47,9 @@ Parameters:
   DetectPhotoLabelsLambdaName:
     Type: "String"
     Default: "detect-photo-labels"
+  SuggestReportsLambdaName:
+    Type: "String"
+    Default: "suggest-reports"
   SearchReportUserLambdaName:
     Type: "String"
     Default: "search-report-user"
@@ -178,6 +181,25 @@ Resources:
       Environment:
         Variables:
           reportsTableName: !Ref "ReportsTableName"
+
+  SuggestReportsLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "SuggestReportsLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "${SuggestReportsLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "SuggestReportsLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          reportsTableName: !Ref "ReportsTableName"
+          reportsDomainHost: !Ref "ReportsDomainEndpoint"
+          reportsDomainPort: 443
 
   SearchReportUserLambda:
     Type: "AWS::Lambda::Function"
@@ -394,6 +416,25 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/AmazonRekognitionReadOnlyAccess"
 
+  SuggestReportsLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${SuggestReportsLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+
   SearchReportUserLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -471,6 +512,11 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${DetectPhotoLabelsLambdaName}"
 
+  SuggestReportsLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${SuggestReportsLambdaName}"
+
   SearchReportUserLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
@@ -510,6 +556,10 @@ Outputs:
     Value: !GetAtt "DetectPhotoLabelsLambda.Arn"
     Export:
       Name: "DetectPhotoLabelsLambdaArn"
+  SuggestReportsLambdaArn:
+    Value: !GetAtt "SuggestReportsLambda.Arn"
+    Export:
+      Name: "SuggestReportsLambdaArn"
   SearchReportUserLambdaArn:
     Value: !GetAtt "SearchReportUserLambda.Arn"
     Export:

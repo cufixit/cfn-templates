@@ -212,6 +212,7 @@ Resources:
         CognitoAdminPoolArn: !Ref "CognitoAdminPoolArn"
         PostGroupLambdaArn: !GetAtt "LambdaStack.Outputs.PostGroupLambdaArn"
         SearchReportAdminLambdaArn: !GetAtt "LambdaStack.Outputs.SearchReportAdminLambdaArn"
+        SuggestReportsLambdaArn: !GetAtt "LambdaStack.Outputs.SuggestReportsLambdaArn"
 
 Outputs:
   UserApiId:
