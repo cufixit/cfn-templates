@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  ProcessReportQueueName:
+    Type: "String"
+    Default: "process-report-queue"
+  ProcessGroupQueueName:
+    Type: "String"
+    Default: "process-group-queue"
+  DetectKeywordsQueueName:
+    Type: "String"
+    Default: "detect-key-phrases-queue"
+
+Resources:
+  ProcessReportQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref "ProcessReportQueueName"
+
+  ProcessGroupQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref "ProcessGroupQueueName"
+
+  DetectKeywordsQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Ref "DetectKeywordsQueueName"
+
+Outputs:
+  ProcessReportQueueUrl:
+    Value: !Ref "ProcessReportQueue"
+  ProcessGroupQueueUrl:
+    Value: !Ref "ProcessGroupQueue"
+  DetectKeywordsQueueUrl:
+    Value: !Ref "DetectKeywordsQueue"
+  ProcessReportQueueArn:
+    Value: !GetAtt "ProcessReportQueue.Arn"
+  ProcessGroupQueueArn:
+    Value: !GetAtt "ProcessGroupQueue.Arn"
+  DetectKeywordsQueueArn:
+    Value: !GetAtt "DetectKeywordsQueue.Arn"

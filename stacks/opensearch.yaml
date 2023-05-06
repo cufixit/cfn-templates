@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  StackName:
+    Type: "String"
+  MasterUserName:
+    Type: "String"
+  MasterUserPassword:
+    Type: "String"
+  LambdaCodeSourceBucket:
+    Type: "String"
+  DomainSetupLambdaName:
+    Type: "String"
+    Default: "domain-setup"
+
+Resources:
+  Domain:
+    Type: "AWS::OpenSearchService::Domain"
+    Properties:
+      AccessPolicies:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: "*"
+            Action: "es:*"
+            Resource: !Sub "arn:${AWS::Partition}:es:${AWS::Region}:${AWS::AccountId}:domain/${StackName}-domain/*"
+      AdvancedSecurityOptions:
+        Enabled: true
+        InternalUserDatabaseEnabled: true
+        MasterUserOptions:
+          MasterUserName: !Ref "MasterUserName"
+          MasterUserPassword: !Ref "MasterUserPassword"
+      ClusterConfig:
+        InstanceType: "t3.small.search"
+        InstanceCount: 1
+      DomainEndpointOptions:
+        EnforceHTTPS: true
+      DomainName: !Sub "${StackName}-domain"
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 10
+        VolumeType: "gp2"
+      EncryptionAtRestOptions:
+        Enabled: true
+        KmsKeyId: !Ref "EncryptionKey"
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+
+  EncryptionKey:
+    Type: "AWS::KMS::Key"
+    Properties:
+      Enabled: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:CreateGrant
+              - kms:DescribeKey
+            Resource: "*"
+            Condition:
+              StringEquals:
+                kms:ViaService: !Sub "es.${AWS::Region}.amazonaws.com"
+                kms:CallerAccount: !Ref AWS::AccountId
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "*"
+            Resource: "*"
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action:
+              - kms:Describe*
+              - kms:Get*
+              - kms:List*
+            Resource: "*"
+
+  DomainIndexes:
+    Type: "Custom::OpenSearchIndexes"
+    Properties:
+      ServiceToken: !GetAtt "DomainSetupLambda.Arn"
+
+  DomainSetupLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "DomainSetupLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "${DomainSetupLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "DomainSetupLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          DOMAIN_ENDPOINT: !GetAtt "Domain.DomainEndpoint"
+          MASTER_USERNAME: !Ref "MasterUserName"
+          MASTER_PASSWORD: !Ref "MasterUserPassword"
+
+  DomainSetupLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${DomainSetupLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+
+  DomainSetupLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${DomainSetupLambdaName}"
+
+Outputs:
+  DomainEndpoint:
+    Value: !GetAtt "Domain.DomainEndpoint"

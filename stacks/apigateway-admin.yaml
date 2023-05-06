@@ -5,10 +5,13 @@ Parameters:
     Type: "String"
   PostGroupLambdaArn:
     Type: "String"
+  FetchReportsLambdaArn:
+    Type: "String"
   SuggestReportsLambdaArn:
     Type: "String"
-  SearchReportAdminLambdaArn:
+  StageName:
     Type: "String"
+    Default: "dev"
 
 Resources:
   Api:
@@ -25,13 +28,14 @@ Resources:
       - "ApiReportsGetMethod"
       - "ApiReportsOptionsMethod"
       - "ApiReportIdGetMethod"
-      - "ApiReportIdDeleteMethod"
       - "ApiReportIdOptionsMethod"
       - "ApiGroupsPostMethod"
       - "ApiGroupsOptionsMethod"
+      - "ApiGroupIdSuggestGetMethod"
+      - "ApiGroupIdReportsPostMethod"
     Properties:
       RestApiId: !Ref "Api"
-      StageName: "dev"
+      StageName: !Ref "StageName"
 
   CognitoAuthorizer:
     Type: "AWS::ApiGateway::Authorizer"
@@ -62,13 +66,17 @@ Resources:
       RestApiId: !Ref "Api"
       ResourceId: !Ref "ApiReportsResource"
       RequestParameters:
-        "method.request.querystring.q": true
+        "method.request.querystring.from": false
+        "method.request.querystring.size": false
+        "method.request.querystring.userId": false
+        "method.request.querystring.building": false
+        "method.request.querystring.status": false
       Integration:
         Type: "AWS_PROXY"
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchReportsLambdaArn}/invocations"
 
   ApiReportsOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -121,25 +129,7 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
-
-  ApiReportIdDeleteMethod:
-    Type: "AWS::ApiGateway::Method"
-    Properties:
-      ApiKeyRequired: false
-      AuthorizationType: "COGNITO_USER_POOLS"
-      AuthorizerId: !Ref "CognitoAuthorizer"
-      HttpMethod: "DELETE"
-      RestApiId: !Ref "Api"
-      ResourceId: !Ref "ApiReportIdResource"
-      RequestParameters:
-        "method.request.path.reportId": true
-      Integration:
-        Type: "AWS_PROXY"
-        IntegrationHttpMethod: "POST"
-        IntegrationResponses:
-          - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportAdminLambdaArn}/invocations"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchReportsLambdaArn}/invocations"
 
   ApiReportIdOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -163,7 +153,7 @@ Resources:
           - StatusCode: 200
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         PassthroughBehavior: "WHEN_NO_MATCH"
         RequestTemplates:
@@ -245,6 +235,8 @@ Resources:
       HttpMethod: "GET"
       RestApiId: !Ref "Api"
       ResourceId: !Ref "ApiGroupIdSuggestResource"
+      RequestParameters:
+        "method.request.path.groupId": true
       Integration:
         Type: "AWS_PROXY"
         IntegrationHttpMethod: "POST"
@@ -277,15 +269,6 @@ Resources:
 
   # Lambda Invocation Permissions
 
-  SearchReportAdminLambdaPermission:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      FunctionName: !Ref "SearchReportAdminLambdaArn"
-      Action: "lambda:InvokeFunction"
-      Principal: "apigateway.amazonaws.com"
-      SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/*/reports*"
-
   PostGroupLambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
@@ -294,6 +277,15 @@ Resources:
       Principal: "apigateway.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"
       SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/POST/groups*"
+
+  FetchReportsLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref "FetchReportsLambdaArn"
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/reports*"
 
   SuggestReportsLambdaPermission:
     Type: "AWS::Lambda::Permission"
@@ -306,5 +298,6 @@ Resources:
 
 Outputs:
   ApiId:
-    Description: "API ID"
     Value: !Ref "Api"
+  ApiUrl:
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"

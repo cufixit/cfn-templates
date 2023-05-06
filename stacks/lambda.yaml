@@ -5,13 +5,13 @@ Parameters:
     Type: "String"
   LambdaCodeSourceBucket:
     Type: "String"
-  ReportsDomainEndpoint:
+  PhotosBucketName:
+    Type: "String"
+  DomainEndpoint:
     Type: "String"
   ReportsTableName:
     Type: "String"
   ReportsTableStreamArn:
-    Type: "String"
-  PhotosBucketName:
     Type: "String"
   ProcessReportQueueArn:
     Type: "String"
@@ -24,6 +24,10 @@ Parameters:
   DetectKeywordsQueueArn:
     Type: "String"
   DetectKeywordsQueueUrl:
+    Type: "String"
+  CognitoUserPoolId:
+    Type: "String"
+  CognitoAdminPoolId:
     Type: "String"
 
   PostReportLambdaName:
@@ -50,12 +54,9 @@ Parameters:
   SuggestReportsLambdaName:
     Type: "String"
     Default: "suggest-reports"
-  SearchReportUserLambdaName:
+  FetchReportsLambdaName:
     Type: "String"
-    Default: "search-report-user"
-  SearchReportAdminLambdaName:
-    Type: "String"
-    Default: "search-report-admin"
+    Default: "fetch-reports"
 
 Resources:
   # Lambda Functions
@@ -68,15 +69,15 @@ Resources:
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${PostReportLambdaName}.zip"
+        S3Key: !Sub "functions/${PostReportLambdaName}.zip"
       PackageType: "Zip"
       Role: !GetAtt "PostReportLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
-          photosBucketName: !Ref "PhotosBucketName"
-          processReportQueueUrl: !Ref "ProcessReportQueueUrl"
+          PHOTOS_BUCKET_NAME: !Ref "PhotosBucketName"
+          PROCESS_REPORT_QUEUE_URL: !Ref "ProcessReportQueueUrl"
 
   StoreReportLambda:
     Type: "AWS::Lambda::Function"
@@ -86,15 +87,15 @@ Resources:
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${StoreReportLambdaName}.zip"
+        S3Key: !Sub "functions/${StoreReportLambdaName}.zip"
       PackageType: "Zip"
       Role: !GetAtt "StoreReportLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
-          reportsTableName: !Ref "ReportsTableName"
-          detectKeywordsQueueUrl: !Ref "DetectKeywordsQueueUrl"
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+          DETECT_KEYWORDS_QUEUE_URL: !Ref "DetectKeywordsQueueUrl"
 
   PostGroupLambda:
     Type: "AWS::Lambda::Function"
@@ -104,14 +105,14 @@ Resources:
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${PostGroupLambdaName}.zip"
+        S3Key: !Sub "functions/${PostGroupLambdaName}.zip"
       PackageType: "Zip"
       Role: !GetAtt "PostReportLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
-          processGroupQueueUrl: !Ref "ProcessGroupQueueUrl"
+          PROCESS_GROUP_QUEUE_URL: !Ref "ProcessGroupQueueUrl"
 
   StoreGroupLambda:
     Type: "AWS::Lambda::Function"
@@ -121,14 +122,14 @@ Resources:
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${StoreGroupLambdaName}.zip"
+        S3Key: !Sub "functions/${StoreGroupLambdaName}.zip"
       PackageType: "Zip"
       Role: !GetAtt "StoreReportLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
-          reportsTableName: !Ref "ReportsTableName"
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
 
   UpdateIndexLambda:
     Type: "AWS::Lambda::Function"
@@ -138,15 +139,15 @@ Resources:
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${UpdateIndexLambdaName}.zip"
+        S3Key: !Sub "functions/${UpdateIndexLambdaName}.zip"
       PackageType: "Zip"
       Role: !GetAtt "UpdateIndexLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
-          reportsDomainHost: !Ref "ReportsDomainEndpoint"
-          reportsDomainPort: 443
+          DOMAIN_ENDPOINT: !Ref "DomainEndpoint"
+          DOMAIN_PORT: 443
 
   DetectKeywordsLambda:
     Type: "AWS::Lambda::Function"
@@ -156,14 +157,14 @@ Resources:
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${DetectKeywordsLambdaName}.zip"
+        S3Key: !Sub "functions/${DetectKeywordsLambdaName}.zip"
       PackageType: "Zip"
       Role: !GetAtt "DetectKeywordsLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
-          reportsTableName: !Ref "ReportsTableName"
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
 
   DetectPhotoLabelsLambda:
     Type: "AWS::Lambda::Function"
@@ -173,14 +174,36 @@ Resources:
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${DetectPhotoLabelsLambdaName}.zip"
+        S3Key: !Sub "functions/${DetectPhotoLabelsLambdaName}.zip"
       PackageType: "Zip"
       Role: !GetAtt "DetectPhotoLabelsLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
-          reportsTableName: !Ref "ReportsTableName"
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+
+  FetchReportsLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "FetchReportsLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "functions/${FetchReportsLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "FetchReportsLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          PHOTOS_BUCKET_NAME: !Ref "PhotosBucketName"
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+          DOMAIN_ENDPOINT: !Ref "DomainEndpoint"
+          DOMAIN_PORT: 443
+          USER_POOL_ID: !Ref "CognitoUserPoolId"
+          ADMIN_POOL_ID: !Ref "CognitoAdminPoolId"
 
   SuggestReportsLambda:
     Type: "AWS::Lambda::Function"
@@ -190,53 +213,16 @@ Resources:
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${SuggestReportsLambdaName}.zip"
+        S3Key: !Sub "functions/${SuggestReportsLambdaName}.zip"
       PackageType: "Zip"
       Role: !GetAtt "SuggestReportsLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
-          reportsTableName: !Ref "ReportsTableName"
-          reportsDomainHost: !Ref "ReportsDomainEndpoint"
-          reportsDomainPort: 443
-
-  SearchReportUserLambda:
-    Type: "AWS::Lambda::Function"
-    Properties:
-      FunctionName: !Ref "SearchReportUserLambdaName"
-      Handler: "lambda_function.lambda_handler"
-      Runtime: "python3.9"
-      Code:
-        S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${SearchReportUserLambdaName}.zip"
-      PackageType: "Zip"
-      Role: !GetAtt "SearchReportUserLambdaRole.Arn"
-      MemorySize: 128
-      Timeout: 30
-      Environment:
-        Variables:
-          reportsDomainEndpoint: !Ref "ReportsDomainEndpoint"
-          reportsTableName: !Ref "ReportsTableName"
-
-  SearchReportAdminLambda:
-    Type: "AWS::Lambda::Function"
-    Properties:
-      FunctionName: !Ref "SearchReportAdminLambdaName"
-      Handler: "lambda_function.lambda_handler"
-      Runtime: "python3.9"
-      Code:
-        S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${SearchReportAdminLambdaName}.zip"
-      PackageType: "Zip"
-      Role: !GetAtt "SearchReportAdminLambdaRole.Arn"
-      MemorySize: 128
-      Timeout: 30
-      Environment:
-        Variables:
-          photosBucketName: !Ref "PhotosBucketName"
-          reportsDomainEndpoint: !Ref "ReportsDomainEndpoint"
-          reportsTableName: !Ref "ReportsTableName"
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+          DOMAIN_ENDPOINT: !Ref "DomainEndpoint"
+          DOMAIN_PORT: 443
 
   # Lambda Event Source Mappings
 
@@ -416,6 +402,25 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/AmazonRekognitionReadOnlyAccess"
 
+  FetchReportsLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${FetchReportsLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+
   SuggestReportsLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -434,46 +439,6 @@ Resources:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
-
-  SearchReportUserLambdaRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      Path: "/"
-      RoleName: !Sub "${StackName}-${SearchReportUserLambdaName}-role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Service:
-                - "lambda.amazonaws.com"
-            Action:
-              - "sts:AssumeRole"
-      ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
-        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-
-  SearchReportAdminLambdaRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      Path: "/"
-      RoleName: !Sub "${StackName}-${SearchReportAdminLambdaName}-role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Service:
-                - "lambda.amazonaws.com"
-            Action:
-              - "sts:AssumeRole"
-      ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
-        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 
   # Lambda Log Groups
 
@@ -512,59 +477,32 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${DetectPhotoLabelsLambdaName}"
 
+  FetchReportsLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${FetchReportsLambdaName}"
+
   SuggestReportsLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
       LogGroupName: !Sub "/aws/lambda/${SuggestReportsLambdaName}"
 
-  SearchReportUserLambdaLogGroup:
-    Type: "AWS::Logs::LogGroup"
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${SearchReportUserLambdaName}"
-
-  SearchReportAdminLambdaLogGroup:
-    Type: "AWS::Logs::LogGroup"
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${SearchReportAdminLambdaName}"
-
 Outputs:
   PostReportLambdaArn:
     Value: !GetAtt "PostReportLambda.Arn"
-    Export:
-      Name: "PostReportLambdaArn"
   StoreReportLambdaArn:
     Value: !GetAtt "StoreReportLambda.Arn"
-    Export:
-      Name: "StoreReportLambdaArn"
   PostGroupLambdaArn:
     Value: !GetAtt "PostGroupLambda.Arn"
-    Export:
-      Name: "PostGroupLambdaArn"
   StoreGroupLambdaArn:
     Value: !GetAtt "StoreGroupLambda.Arn"
-    Export:
-      Name: "StoreGroupLambdaArn"
   UpdateIndexLambdaArn:
     Value: !GetAtt "UpdateIndexLambda.Arn"
-    Export:
-      Name: "UpdateIndexLambdaArn"
   DetectKeywordsLambdaArn:
     Value: !GetAtt "DetectKeywordsLambda.Arn"
-    Export:
-      Name: "DetectKeywordsLambdaArn"
   DetectPhotoLabelsLambdaArn:
     Value: !GetAtt "DetectPhotoLabelsLambda.Arn"
-    Export:
-      Name: "DetectPhotoLabelsLambdaArn"
+  FetchReportsLambdaArn:
+    Value: !GetAtt "FetchReportsLambda.Arn"
   SuggestReportsLambdaArn:
     Value: !GetAtt "SuggestReportsLambda.Arn"
-    Export:
-      Name: "SuggestReportsLambdaArn"
-  SearchReportUserLambdaArn:
-    Value: !GetAtt "SearchReportUserLambda.Arn"
-    Export:
-      Name: "SearchReportUserLambdaArn"
-  SearchReportAdminLambdaArn:
-    Value: !GetAtt "SearchReportAdminLambda.Arn"
-    Export:
-      Name: "SearchReportAdminLambdaArn"

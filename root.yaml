@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  LambdaCodeSourceBucket:
+    Type: "String"
+  CognitoUserPoolId:
+    Type: "String"
+  CognitoAdminPoolId:
+    Type: "String"
+  OpenSearchMasterUserName:
+    Type: "String"
+  OpenSearchMasterUserPassword:
+    Type: "String"
+  PhotosBucketName:
+    Type: "String"
+    Default: "cu-fixit-photos"
+
+Resources:
+  OpenSearchStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "stacks/opensearch.yaml"
+      Parameters:
+        StackName: !Ref "AWS::StackName"
+        MasterUserName: !Ref "OpenSearchMasterUserName"
+        MasterUserPassword: !Ref "OpenSearchMasterUserPassword"
+        LambdaCodeSourceBucket: !Ref "LambdaCodeSourceBucket"
+
+  DynamoDBStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "stacks/dynamodb.yaml"
+
+  SQSStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "stacks/sqs.yaml"
+
+  LambdaStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "stacks/lambda.yaml"
+      Parameters:
+        StackName: !Ref "AWS::StackName"
+        LambdaCodeSourceBucket: !Ref "LambdaCodeSourceBucket"
+        PhotosBucketName: !Ref "PhotosBucketName"
+        DomainEndpoint: !GetAtt "OpenSearchStack.Outputs.DomainEndpoint"
+        ReportsTableName: !GetAtt "DynamoDBStack.Outputs.ReportsTableName"
+        ReportsTableStreamArn: !GetAtt "DynamoDBStack.Outputs.ReportsTableStreamArn"
+        ProcessReportQueueArn: !GetAtt "SQSStack.Outputs.ProcessReportQueueArn"
+        ProcessReportQueueUrl: !GetAtt "SQSStack.Outputs.ProcessReportQueueUrl"
+        ProcessGroupQueueArn: !GetAtt "SQSStack.Outputs.ProcessGroupQueueArn"
+        ProcessGroupQueueUrl: !GetAtt "SQSStack.Outputs.ProcessGroupQueueUrl"
+        DetectKeywordsQueueArn: !GetAtt "SQSStack.Outputs.DetectKeywordsQueueArn"
+        DetectKeywordsQueueUrl: !GetAtt "SQSStack.Outputs.DetectKeywordsQueueUrl"
+        CognitoUserPoolId: !Ref "CognitoUserPoolId"
+        CognitoAdminPoolId: !Ref "CognitoAdminPoolId"
+
+  UserApiStack:
+    Type: "AWS::CloudFormation::Stack"
+    DependsOn: "LambdaStack"
+    Properties:
+      TemplateURL: "stacks/apigateway-user.yaml"
+      Parameters:
+        CognitoUserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}"
+        PostReportLambdaArn: !GetAtt "LambdaStack.Outputs.PostReportLambdaArn"
+        FetchReportsLambdaArn: !GetAtt "LambdaStack.Outputs.FetchReportsLambdaArn"
+
+  AdminApiStack:
+    Type: "AWS::CloudFormation::Stack"
+    DependsOn: "LambdaStack"
+    Properties:
+      TemplateURL: "stacks/apigateway-admin.yaml"
+      Parameters:
+        CognitoAdminPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoAdminPoolId}"
+        PostGroupLambdaArn: !GetAtt "LambdaStack.Outputs.PostGroupLambdaArn"
+        FetchReportsLambdaArn: !GetAtt "LambdaStack.Outputs.FetchReportsLambdaArn"
+        SuggestReportsLambdaArn: !GetAtt "LambdaStack.Outputs.SuggestReportsLambdaArn"
+
+  PhotosBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref "PhotosBucketName"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - "*"
+            AllowedMethods:
+              - "GET"
+              - "POST"
+            AllowedHeaders:
+              - "*"
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Function: !GetAtt "LambdaStack.Outputs.DetectPhotoLabelsLambdaArn"
+
+Outputs:
+  UserApiId:
+    Value: !GetAtt "UserApiStack.Outputs.ApiId"
+  UserApiUrl:
+    Value: !GetAtt "UserApiStack.Outputs.ApiUrl"
+  AdminApiId:
+    Value: !GetAtt "AdminApiStack.Outputs.ApiId"
+  AdminApiUrl:
+    Value: !GetAtt "AdminApiStack.Outputs.ApiUrl"

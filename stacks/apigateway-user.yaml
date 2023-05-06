@@ -5,8 +5,11 @@ Parameters:
     Type: "String"
   PostReportLambdaArn:
     Type: "String"
-  SearchReportUserLambdaArn:
+  FetchReportsLambdaArn:
     Type: "String"
+  StageName:
+    Type: "String"
+    Default: "dev"
 
 Resources:
   Api:
@@ -27,7 +30,7 @@ Resources:
       - "ApiReportIdOptionsMethod"
     Properties:
       RestApiId: !Ref "Api"
-      StageName: "dev"
+      StageName: !Ref "StageName"
 
   CognitoAuthorizer:
     Type: "AWS::ApiGateway::Authorizer"
@@ -62,7 +65,7 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportUserLambdaArn}/invocations"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchReportsLambdaArn}/invocations"
 
   ApiReportsPostMethod:
     Type: "AWS::ApiGateway::Method"
@@ -131,7 +134,7 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchReportUserLambdaArn}/invocations"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchReportsLambdaArn}/invocations"
 
   ApiReportIdOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -163,15 +166,6 @@ Resources:
 
   # Lambda Invocation Permissions
 
-  SearchReportUserLambdaPermission:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      FunctionName: !Ref "SearchReportUserLambdaArn"
-      Action: "lambda:InvokeFunction"
-      Principal: "apigateway.amazonaws.com"
-      SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/reports*"
-
   PostReportLambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
@@ -181,7 +175,17 @@ Resources:
       SourceAccount: !Ref "AWS::AccountId"
       SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/POST/reports"
 
+  FetchReportsLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref "FetchReportsLambdaArn"
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/reports*"
+
 Outputs:
   ApiId:
-    Description: "API ID"
     Value: !Ref "Api"
+  ApiUrl:
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"
