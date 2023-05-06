@@ -68,6 +68,7 @@ Resources:
       RequestParameters:
         "method.request.querystring.from": false
         "method.request.querystring.size": false
+        "method.request.querystring.q": false
         "method.request.querystring.userId": false
         "method.request.querystring.building": false
         "method.request.querystring.status": false
