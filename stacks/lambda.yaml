@@ -77,6 +77,16 @@ Resources:
       CompatibleRuntimes:
         - "python3.9"
 
+  OpenSearchLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      LayerName: "opensearch"
+      Content:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: "layers/opensearch.zip"
+      CompatibleRuntimes:
+        - "python3.9"
+
   # Lambda Functions
 
   PostReportLambda:
@@ -159,6 +169,8 @@ Resources:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
         S3Key: !Sub "functions/${UpdateIndexLambdaName}.zip"
       PackageType: "Zip"
+      Layers:
+        - !Ref "OpenSearchLayer"
       Role: !GetAtt "UpdateIndexLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
@@ -235,6 +247,7 @@ Resources:
       PackageType: "Zip"
       Layers:
         - !Ref "HelperLayer"
+        - !Ref "OpenSearchLayer"
       Role: !GetAtt "QueryReportsLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
@@ -277,6 +290,8 @@ Resources:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
         S3Key: !Sub "functions/${SuggestReportsLambdaName}.zip"
       PackageType: "Zip"
+      Layers:
+        - !Ref "OpenSearchLayer"
       Role: !GetAtt "SuggestReportsLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
