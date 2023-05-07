@@ -130,6 +130,7 @@ Resources:
       Timeout: 30
       Environment:
         Variables:
+          PHOTOS_BUCKET_NAME: !Ref "PhotosBucketName"
           REPORTS_TABLE_NAME: !Ref "ReportsTableName"
           DETECT_KEYWORDS_QUEUE_URL: !Ref "DetectKeywordsQueueUrl"
 
@@ -284,7 +285,7 @@ Resources:
       Environment:
         Variables:
           REPORTS_TABLE_NAME: !Ref "ReportsTableName"
-          PHOTOS_BUCKET_NAME: !Ref "PhotosBucketName"
+          PROCESS_REPORT_QUEUE_URL: !Ref "ProcessReportQueueUrl"
           USER_POOL_ID: !Ref "CognitoUserPoolId"
           ADMIN_POOL_ID: !Ref "CognitoAdminPoolId"
 
@@ -431,6 +432,7 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
         - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 
   PostGroupLambdaRole:
@@ -546,7 +548,7 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
         - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
 
   QueryReportsLambdaRole:
     Type: "AWS::IAM::Role"
@@ -564,7 +566,7 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceReadOnlyAccess"
 
   DeleteReportLambdaRole:
     Type: "AWS::IAM::Role"
@@ -582,8 +584,8 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
 
   FetchGroupLambdaRole:
     Type: "AWS::IAM::Role"
@@ -601,7 +603,7 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
 
   QueryGroupsLambdaRole:
     Type: "AWS::IAM::Role"
@@ -619,7 +621,7 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceReadOnlyAccess"
 
   SuggestReportsLambdaRole:
     Type: "AWS::IAM::Role"
@@ -638,7 +640,7 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceReadOnlyAccess"
 
   # Lambda Log Groups
 
