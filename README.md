@@ -5,13 +5,10 @@ This repository contains the CloudFormation templates for the `cu-fixit` stack. 
 - S3 bucket storing Lambda deployment packages
 - S3 bucket storing packaged CloudFormation templates for nested stacks
 - Cognito user pools for users and admin
-- OpenSearch domain role mappings
 
-Note: Apart from the domain role mappings, all other OpenSearch configurations are made through custom resources.
+Note: All OpenSearch configurations are made through custom resources, including index mappings and role mappings.
 
 The S3 buckets and Cognito user pools need to be created before the stack is deployed. These resources are specified in `makefile.env`.
-
-The OpenSearch domain role mappings need to be configured after the OpenSearch domain is created to provide access to the necessary IAM roles.
 
 ## Quick Start
 
