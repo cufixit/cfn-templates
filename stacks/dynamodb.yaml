@@ -4,6 +4,9 @@ Parameters:
   ReportsTableName:
     Type: "String"
     Default: "reports"
+  GroupIndexName:
+    Type: "String"
+    Default: "group-index"
 
 Resources:
   ReportsTable:
@@ -19,14 +22,17 @@ Resources:
         - AttributeName: "ID"
           KeyType: "HASH"
       GlobalSecondaryIndexes:
-        - IndexName: "groupID-index"
+        - IndexName: !Ref "GroupIndexName"
           KeySchema:
             - AttributeName: "groupID"
               KeyType: "HASH"
             - AttributeName: "ID"
               KeyType: "RANGE"
           Projection:
-            ProjectionType: "KEYS_ONLY"
+            ProjectionType: "INCLUDE"
+            NonKeyAttributes:
+              - "title"
+              - "createdDate"
           ProvisionedThroughput:
             ReadCapacityUnits: 1
             WriteCapacityUnits: 1
@@ -90,3 +96,5 @@ Outputs:
     Value: !Ref "ReportsTableName"
   ReportsTableStreamArn:
     Value: !GetAtt "ReportsTable.StreamArn"
+  ReportsTableGroupIndexName:
+    Value: !Ref "GroupIndexName"

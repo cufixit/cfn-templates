@@ -13,6 +13,8 @@ Parameters:
     Type: "String"
   ReportsTableStreamArn:
     Type: "String"
+  ReportsTableGroupIndexName:
+    Type: "String"
   ProcessReportQueueArn:
     Type: "String"
   ProcessReportQueueUrl:
@@ -57,12 +59,15 @@ Parameters:
   QueryReportsLambdaName:
     Type: "String"
     Default: "query-reports"
-  SuggestReportsLambdaName:
-    Type: "String"
-    Default: "suggest-reports"
   DeleteReportLambdaName:
     Type: "String"
     Default: "delete-report"
+  FetchGroupLambdaName:
+    Type: "String"
+    Default: "fetch-group"
+  SuggestReportsLambdaName:
+    Type: "String"
+    Default: "suggest-reports"
 
 Resources:
   # Lambda Layers
@@ -279,6 +284,26 @@ Resources:
           PHOTOS_BUCKET_NAME: !Ref "PhotosBucketName"
           USER_POOL_ID: !Ref "CognitoUserPoolId"
           ADMIN_POOL_ID: !Ref "CognitoAdminPoolId"
+
+  FetchGroupLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "FetchGroupLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "functions/${FetchGroupLambdaName}.zip"
+      PackageType: "Zip"
+      Layers:
+        - !Ref "HelperLayer"
+      Role: !GetAtt "FetchGroupLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+          GROUP_INDEX_NAME: !Ref "ReportsTableGroupIndexName"
 
   SuggestReportsLambda:
     Type: "AWS::Lambda::Function"
@@ -536,6 +561,24 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 
+  FetchGroupLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${FetchGroupLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+
   SuggestReportsLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -607,6 +650,11 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${DeleteReportLambdaName}"
 
+  FetchGroupLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${FetchGroupLambdaName}"
+
   SuggestReportsLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
@@ -633,6 +681,8 @@ Outputs:
     Value: !GetAtt "QueryReportsLambda.Arn"
   DeleteReportLambdaArn:
     Value: !GetAtt "DeleteReportLambda.Arn"
+  FetchGroupLambdaArn:
+    Value: !GetAtt "FetchGroupLambda.Arn"
   SuggestReportsLambdaArn:
     Value: !GetAtt "SuggestReportsLambda.Arn"
   UpdateIndexRoleArn:

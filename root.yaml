@@ -46,6 +46,7 @@ Resources:
         DomainEndpoint: !GetAtt "OpenSearchStack.Outputs.DomainEndpoint"
         ReportsTableName: !GetAtt "DynamoDBStack.Outputs.ReportsTableName"
         ReportsTableStreamArn: !GetAtt "DynamoDBStack.Outputs.ReportsTableStreamArn"
+        ReportsTableGroupIndexName: !GetAtt "DynamoDBStack.Outputs.ReportsTableGroupIndexName"
         ProcessReportQueueArn: !GetAtt "SQSStack.Outputs.ProcessReportQueueArn"
         ProcessReportQueueUrl: !GetAtt "SQSStack.Outputs.ProcessReportQueueUrl"
         ProcessGroupQueueArn: !GetAtt "SQSStack.Outputs.ProcessGroupQueueArn"
