@@ -291,6 +291,7 @@ Resources:
         S3Key: !Sub "functions/${SuggestReportsLambdaName}.zip"
       PackageType: "Zip"
       Layers:
+        - !Ref "HelperLayer"
         - !Ref "OpenSearchLayer"
       Role: !GetAtt "SuggestReportsLambdaRole.Arn"
       MemorySize: 128
