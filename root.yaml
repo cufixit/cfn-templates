@@ -98,6 +98,7 @@ Resources:
         FetchReportLambdaArn: !GetAtt "LambdaStack.Outputs.FetchReportLambdaArn"
         QueryReportsLambdaArn: !GetAtt "LambdaStack.Outputs.QueryReportsLambdaArn"
         DeleteReportLambdaArn: !GetAtt "LambdaStack.Outputs.DeleteReportLambdaArn"
+        FetchGroupLambdaArn: !GetAtt "LambdaStack.Outputs.FetchGroupLambdaArn"
         SuggestReportsLambdaArn: !GetAtt "LambdaStack.Outputs.SuggestReportsLambdaArn"
 
   PhotosBucket:
