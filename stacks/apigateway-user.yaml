@@ -5,7 +5,11 @@ Parameters:
     Type: "String"
   PostReportLambdaArn:
     Type: "String"
-  FetchReportsLambdaArn:
+  FetchReportLambdaArn:
+    Type: "String"
+  QueryReportsLambdaArn:
+    Type: "String"
+  DeleteReportLambdaArn:
     Type: "String"
   StageName:
     Type: "String"
@@ -27,6 +31,7 @@ Resources:
       - "ApiReportsPostMethod"
       - "ApiReportsOptionsMethod"
       - "ApiReportIdGetMethod"
+      - "ApiReportIdDeleteMethod"
       - "ApiReportIdOptionsMethod"
     Properties:
       RestApiId: !Ref "Api"
@@ -65,7 +70,7 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchReportsLambdaArn}/invocations"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${QueryReportsLambdaArn}/invocations"
 
   ApiReportsPostMethod:
     Type: "AWS::ApiGateway::Method"
@@ -134,7 +139,25 @@ Resources:
         IntegrationHttpMethod: "POST"
         IntegrationResponses:
           - StatusCode: 200
-        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchReportsLambdaArn}/invocations"
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchReportLambdaArn}/invocations"
+
+  ApiReportIdDeleteMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "COGNITO_USER_POOLS"
+      AuthorizerId: !Ref "CognitoAuthorizer"
+      HttpMethod: "DELETE"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiReportIdResource"
+      RequestParameters:
+        "method.request.path.reportId": true
+      Integration:
+        Type: "AWS_PROXY"
+        IntegrationHttpMethod: "POST"
+        IntegrationResponses:
+          - StatusCode: 200
+        Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteReportLambdaArn}/invocations"
 
   ApiReportIdOptionsMethod:
     Type: "AWS::ApiGateway::Method"
@@ -175,14 +198,32 @@ Resources:
       SourceAccount: !Ref "AWS::AccountId"
       SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/POST/reports"
 
-  FetchReportsLambdaPermission:
+  FetchReportLambdaPermission:
     Type: "AWS::Lambda::Permission"
     Properties:
-      FunctionName: !Ref "FetchReportsLambdaArn"
+      FunctionName: !Ref "FetchReportLambdaArn"
       Action: "lambda:InvokeFunction"
       Principal: "apigateway.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/reports*"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/reports/*"
+
+  QueryReportsLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref "QueryReportsLambdaArn"
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/GET/reports"
+
+  DeleteReportLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref "DeleteReportLambdaArn"
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api.RestApiId}/*/DELETE/reports/*"
 
 Outputs:
   ApiId:

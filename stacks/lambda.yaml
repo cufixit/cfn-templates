@@ -51,14 +51,32 @@ Parameters:
   DetectPhotoLabelsLambdaName:
     Type: "String"
     Default: "detect-photo-labels"
+  FetchReportLambdaName:
+    Type: "String"
+    Default: "fetch-report"
+  QueryReportsLambdaName:
+    Type: "String"
+    Default: "query-reports"
   SuggestReportsLambdaName:
     Type: "String"
     Default: "suggest-reports"
-  FetchReportsLambdaName:
+  DeleteReportLambdaName:
     Type: "String"
-    Default: "fetch-reports"
+    Default: "delete-report"
 
 Resources:
+  # Lambda Layers
+
+  HelperLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      LayerName: "helper"
+      Content:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: "layers/helper.zip"
+      CompatibleRuntimes:
+        - "python3.9"
+
   # Lambda Functions
 
   PostReportLambda:
@@ -183,25 +201,69 @@ Resources:
         Variables:
           REPORTS_TABLE_NAME: !Ref "ReportsTableName"
 
-  FetchReportsLambda:
+  FetchReportLambda:
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: !Ref "FetchReportsLambdaName"
+      FunctionName: !Ref "FetchReportLambdaName"
       Handler: "lambda_function.lambda_handler"
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "functions/${FetchReportsLambdaName}.zip"
+        S3Key: !Sub "functions/${FetchReportLambdaName}.zip"
       PackageType: "Zip"
-      Role: !GetAtt "FetchReportsLambdaRole.Arn"
+      Layers:
+        - !Ref "HelperLayer"
+      Role: !GetAtt "FetchReportLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
         Variables:
           PHOTOS_BUCKET_NAME: !Ref "PhotosBucketName"
           REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+          USER_POOL_ID: !Ref "CognitoUserPoolId"
+          ADMIN_POOL_ID: !Ref "CognitoAdminPoolId"
+
+  QueryReportsLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "QueryReportsLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "functions/${QueryReportsLambdaName}.zip"
+      PackageType: "Zip"
+      Layers:
+        - !Ref "HelperLayer"
+      Role: !GetAtt "QueryReportsLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
           DOMAIN_ENDPOINT: !Ref "DomainEndpoint"
           DOMAIN_PORT: 443
+          USER_POOL_ID: !Ref "CognitoUserPoolId"
+          ADMIN_POOL_ID: !Ref "CognitoAdminPoolId"
+
+  DeleteReportLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "DeleteReportLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "functions/${DeleteReportLambdaName}.zip"
+      PackageType: "Zip"
+      Layers:
+        - !Ref "HelperLayer"
+      Role: !GetAtt "DeleteReportLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+          PHOTOS_BUCKET_NAME: !Ref "PhotosBucketName"
           USER_POOL_ID: !Ref "CognitoUserPoolId"
           ADMIN_POOL_ID: !Ref "CognitoAdminPoolId"
 
@@ -402,11 +464,48 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/AmazonRekognitionReadOnlyAccess"
 
-  FetchReportsLambdaRole:
+  FetchReportLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
       Path: "/"
-      RoleName: !Sub "${StackName}-${FetchReportsLambdaName}-role"
+      RoleName: !Sub "${StackName}-${FetchReportLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+
+  QueryReportsLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${QueryReportsLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+
+  DeleteReportLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${DeleteReportLambdaName}-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -419,7 +518,6 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
         - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 
   SuggestReportsLambdaRole:
@@ -478,10 +576,20 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${DetectPhotoLabelsLambdaName}"
 
-  FetchReportsLambdaLogGroup:
+  FetchReportLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${FetchReportsLambdaName}"
+      LogGroupName: !Sub "/aws/lambda/${FetchReportLambdaName}"
+
+  QueryReportsLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${QueryReportsLambdaName}"
+
+  DeleteReportLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${DeleteReportLambdaName}"
 
   SuggestReportsLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
@@ -503,7 +611,11 @@ Outputs:
     Value: !GetAtt "DetectKeywordsLambda.Arn"
   DetectPhotoLabelsLambdaArn:
     Value: !GetAtt "DetectPhotoLabelsLambda.Arn"
-  FetchReportsLambdaArn:
-    Value: !GetAtt "FetchReportsLambda.Arn"
+  FetchReportLambdaArn:
+    Value: !GetAtt "FetchReportLambda.Arn"
+  QueryReportsLambdaArn:
+    Value: !GetAtt "QueryReportsLambda.Arn"
+  DeleteReportLambdaArn:
+    Value: !GetAtt "DeleteReportLambda.Arn"
   SuggestReportsLambdaArn:
     Value: !GetAtt "SuggestReportsLambda.Arn"

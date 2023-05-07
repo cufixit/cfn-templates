@@ -64,7 +64,9 @@ Resources:
       Parameters:
         CognitoUserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}"
         PostReportLambdaArn: !GetAtt "LambdaStack.Outputs.PostReportLambdaArn"
-        FetchReportsLambdaArn: !GetAtt "LambdaStack.Outputs.FetchReportsLambdaArn"
+        FetchReportLambdaArn: !GetAtt "LambdaStack.Outputs.FetchReportLambdaArn"
+        QueryReportsLambdaArn: !GetAtt "LambdaStack.Outputs.QueryReportsLambdaArn"
+        DeleteReportLambdaArn: !GetAtt "LambdaStack.Outputs.DeleteReportLambdaArn"
 
   AdminApiStack:
     Type: "AWS::CloudFormation::Stack"
@@ -74,7 +76,9 @@ Resources:
       Parameters:
         CognitoAdminPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoAdminPoolId}"
         PostGroupLambdaArn: !GetAtt "LambdaStack.Outputs.PostGroupLambdaArn"
-        FetchReportsLambdaArn: !GetAtt "LambdaStack.Outputs.FetchReportsLambdaArn"
+        FetchReportLambdaArn: !GetAtt "LambdaStack.Outputs.FetchReportLambdaArn"
+        QueryReportsLambdaArn: !GetAtt "LambdaStack.Outputs.QueryReportsLambdaArn"
+        DeleteReportLambdaArn: !GetAtt "LambdaStack.Outputs.DeleteReportLambdaArn"
         SuggestReportsLambdaArn: !GetAtt "LambdaStack.Outputs.SuggestReportsLambdaArn"
 
   PhotosBucket:
