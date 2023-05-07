@@ -283,6 +283,34 @@ Resources:
           - StatusCode: 200
         Uri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FetchGroupLambdaArn}/invocations"
 
+  ApiGroupIdOptionsMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: "NONE"
+      HttpMethod: "OPTIONS"
+      RestApiId: !Ref "Api"
+      ResourceId: !Ref "ApiGroupIdResource"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+          ResponseModels:
+            application/json: "Empty"
+      Integration:
+        Type: "MOCK"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+
   ApiGroupIdSuggestResource:
     Type: "AWS::ApiGateway::Resource"
     Properties:
