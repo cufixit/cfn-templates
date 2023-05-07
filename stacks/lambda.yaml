@@ -634,3 +634,9 @@ Outputs:
     Value: !GetAtt "DeleteReportLambda.Arn"
   SuggestReportsLambdaArn:
     Value: !GetAtt "SuggestReportsLambda.Arn"
+  UpdateIndexRoleArn:
+    Value: !GetAtt "UpdateIndexLambdaRole.Arn"
+  QueryReportsRoleArn:
+    Value: !GetAtt "QueryReportsLambdaRole.Arn"
+  SuggestReportsRoleArn:
+    Value: !GetAtt "SuggestReportsLambdaRole.Arn"

@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  StackName:
+    Type: "String"
+  DomainEndpoint:
+    Type: "String"
+  MasterUserName:
+    Type: "String"
+  MasterUserPassword:
+    Type: "String"
+  LambdaCodeSourceBucket:
+    Type: "String"
+  ConfigureDomainLambdaName:
+    Type: "String"
+    Default: "configure-domain"
+  AllAccessRoles:
+    Type: "String"
+
+Resources:
+  DomainConfiguration:
+    Type: "Custom::DomainConfiguration"
+    Properties:
+      ServiceToken: !GetAtt "ConfigureDomainLambda.Arn"
+
+  ConfigureDomainLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "ConfigureDomainLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "functions/${ConfigureDomainLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "ConfigureDomainLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          DOMAIN_ENDPOINT: !Ref "DomainEndpoint"
+          MASTER_USERNAME: !Ref "MasterUserName"
+          MASTER_PASSWORD: !Ref "MasterUserPassword"
+          ALL_ACCESS_ROLES: !Ref "AllAccessRoles"
+
+  ConfigureDomainLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${ConfigureDomainLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+
+  ConfigureDomainLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ConfigureDomainLambdaName}"

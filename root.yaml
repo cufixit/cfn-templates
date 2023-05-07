@@ -24,7 +24,6 @@ Resources:
         StackName: !Ref "AWS::StackName"
         MasterUserName: !Ref "OpenSearchMasterUserName"
         MasterUserPassword: !Ref "OpenSearchMasterUserPassword"
-        LambdaCodeSourceBucket: !Ref "LambdaCodeSourceBucket"
 
   DynamoDBStack:
     Type: "AWS::CloudFormation::Stack"
@@ -55,6 +54,25 @@ Resources:
         DetectKeywordsQueueUrl: !GetAtt "SQSStack.Outputs.DetectKeywordsQueueUrl"
         CognitoUserPoolId: !Ref "CognitoUserPoolId"
         CognitoAdminPoolId: !Ref "CognitoAdminPoolId"
+
+  CustomStack:
+    Type: "AWS::CloudFormation::Stack"
+    DependsOn:
+      - "OpenSearchStack"
+      - "LambdaStack"
+    Properties:
+      TemplateURL: "stacks/custom.yaml"
+      Parameters:
+        StackName: !Ref "AWS::StackName"
+        DomainEndpoint: !GetAtt "OpenSearchStack.Outputs.DomainEndpoint"
+        MasterUserName: !Ref "OpenSearchMasterUserName"
+        MasterUserPassword: !Ref "OpenSearchMasterUserPassword"
+        LambdaCodeSourceBucket: !Ref "LambdaCodeSourceBucket"
+        AllAccessRoles: !Join
+          - ","
+          - - !GetAtt "LambdaStack.Outputs.UpdateIndexRoleArn"
+            - !GetAtt "LambdaStack.Outputs.QueryReportsRoleArn"
+            - !GetAtt "LambdaStack.Outputs.SuggestReportsRoleArn"
 
   UserApiStack:
     Type: "AWS::CloudFormation::Stack"

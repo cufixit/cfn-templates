@@ -7,11 +7,6 @@ Parameters:
     Type: "String"
   MasterUserPassword:
     Type: "String"
-  LambdaCodeSourceBucket:
-    Type: "String"
-  DomainSetupLambdaName:
-    Type: "String"
-    Default: "domain-setup"
 
 Resources:
   Domain:
@@ -82,51 +77,6 @@ Resources:
               - kms:Get*
               - kms:List*
             Resource: "*"
-
-  DomainIndexes:
-    Type: "Custom::OpenSearchIndexes"
-    Properties:
-      ServiceToken: !GetAtt "DomainSetupLambda.Arn"
-
-  DomainSetupLambda:
-    Type: "AWS::Lambda::Function"
-    Properties:
-      FunctionName: !Ref "DomainSetupLambdaName"
-      Handler: "lambda_function.lambda_handler"
-      Runtime: "python3.9"
-      Code:
-        S3Bucket: !Ref "LambdaCodeSourceBucket"
-        S3Key: !Sub "${DomainSetupLambdaName}.zip"
-      PackageType: "Zip"
-      Role: !GetAtt "DomainSetupLambdaRole.Arn"
-      MemorySize: 128
-      Timeout: 30
-      Environment:
-        Variables:
-          DOMAIN_ENDPOINT: !GetAtt "Domain.DomainEndpoint"
-          MASTER_USERNAME: !Ref "MasterUserName"
-          MASTER_PASSWORD: !Ref "MasterUserPassword"
-
-  DomainSetupLambdaRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      Path: "/"
-      RoleName: !Sub "${StackName}-${DomainSetupLambdaName}-role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Service: "lambda.amazonaws.com"
-            Action: "sts:AssumeRole"
-      ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
-
-  DomainSetupLambdaLogGroup:
-    Type: "AWS::Logs::LogGroup"
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${DomainSetupLambdaName}"
 
 Outputs:
   DomainEndpoint:
