@@ -73,6 +73,7 @@ Resources:
           - ","
           - - !GetAtt "LambdaStack.Outputs.UpdateIndexRoleArn"
             - !GetAtt "LambdaStack.Outputs.QueryReportsRoleArn"
+            - !GetAtt "LambdaStack.Outputs.QueryGroupsRoleArn"
             - !GetAtt "LambdaStack.Outputs.SuggestReportsRoleArn"
 
   UserApiStack:
@@ -99,6 +100,7 @@ Resources:
         QueryReportsLambdaArn: !GetAtt "LambdaStack.Outputs.QueryReportsLambdaArn"
         DeleteReportLambdaArn: !GetAtt "LambdaStack.Outputs.DeleteReportLambdaArn"
         FetchGroupLambdaArn: !GetAtt "LambdaStack.Outputs.FetchGroupLambdaArn"
+        QueryGroupsLambdaArn: !GetAtt "LambdaStack.Outputs.QueryGroupsLambdaArn"
         SuggestReportsLambdaArn: !GetAtt "LambdaStack.Outputs.SuggestReportsLambdaArn"
 
   PhotosBucket:

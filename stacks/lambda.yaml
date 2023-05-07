@@ -65,6 +65,9 @@ Parameters:
   FetchGroupLambdaName:
     Type: "String"
     Default: "fetch-group"
+  QueryGroupsLambdaName:
+    Type: "String"
+    Default: "query-groups"
   SuggestReportsLambdaName:
     Type: "String"
     Default: "suggest-reports"
@@ -304,6 +307,27 @@ Resources:
         Variables:
           REPORTS_TABLE_NAME: !Ref "ReportsTableName"
           GROUP_INDEX_NAME: !Ref "ReportsTableGroupIndexName"
+
+  QueryGroupsLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "QueryGroupsLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "functions/${QueryGroupsLambdaName}.zip"
+      PackageType: "Zip"
+      Layers:
+        - !Ref "HelperLayer"
+        - !Ref "OpenSearchLayer"
+      Role: !GetAtt "QueryGroupsLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          DOMAIN_ENDPOINT: !Ref "DomainEndpoint"
+          DOMAIN_PORT: 443
 
   SuggestReportsLambda:
     Type: "AWS::Lambda::Function"
@@ -579,6 +603,24 @@ Resources:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 
+  QueryGroupsLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${QueryGroupsLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+
   SuggestReportsLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -655,6 +697,11 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${FetchGroupLambdaName}"
 
+  QueryGroupsLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${QueryGroupsLambdaName}"
+
   SuggestReportsLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
@@ -683,11 +730,15 @@ Outputs:
     Value: !GetAtt "DeleteReportLambda.Arn"
   FetchGroupLambdaArn:
     Value: !GetAtt "FetchGroupLambda.Arn"
+  QueryGroupsLambdaArn:
+    Value: !GetAtt "QueryGroupsLambda.Arn"
   SuggestReportsLambdaArn:
     Value: !GetAtt "SuggestReportsLambda.Arn"
   UpdateIndexRoleArn:
     Value: !GetAtt "UpdateIndexLambdaRole.Arn"
   QueryReportsRoleArn:
     Value: !GetAtt "QueryReportsLambdaRole.Arn"
+  QueryGroupsRoleArn:
+    Value: !GetAtt "QueryGroupsLambdaRole.Arn"
   SuggestReportsRoleArn:
     Value: !GetAtt "SuggestReportsLambdaRole.Arn"
