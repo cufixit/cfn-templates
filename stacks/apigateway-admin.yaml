@@ -91,6 +91,7 @@ Resources:
         "method.request.querystring.userId": false
         "method.request.querystring.building": false
         "method.request.querystring.status": false
+        "method.request.querystring.ungrouped": false
       Integration:
         Type: "AWS_PROXY"
         IntegrationHttpMethod: "POST"
