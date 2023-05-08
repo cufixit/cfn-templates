@@ -33,6 +33,7 @@ Resources:
             NonKeyAttributes:
               - "title"
               - "createdDate"
+              - "status"
           ProvisionedThroughput:
             ReadCapacityUnits: 1
             WriteCapacityUnits: 1

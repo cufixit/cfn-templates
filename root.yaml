@@ -102,6 +102,7 @@ Resources:
         FetchGroupLambdaArn: !GetAtt "LambdaStack.Outputs.FetchGroupLambdaArn"
         QueryGroupsLambdaArn: !GetAtt "LambdaStack.Outputs.QueryGroupsLambdaArn"
         DeleteGroupLambdaArn: !GetAtt "LambdaStack.Outputs.DeleteGroupLambdaArn"
+        UpdateGroupLambdaArn: !GetAtt "LambdaStack.Outputs.UpdateGroupLambdaArn"
         SuggestReportsLambdaArn: !GetAtt "LambdaStack.Outputs.SuggestReportsLambdaArn"
         GroupReportsLambdaArn: !GetAtt "LambdaStack.Outputs.GroupReportsLambdaArn"
 

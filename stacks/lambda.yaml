@@ -71,6 +71,9 @@ Parameters:
   DeleteGroupLambdaName:
     Type: "String"
     Default: "delete-group"
+  UpdateGroupLambdaName:
+    Type: "String"
+    Default: "update-group"
   SuggestReportsLambdaName:
     Type: "String"
     Default: "suggest-reports"
@@ -348,6 +351,26 @@ Resources:
         S3Key: !Sub "functions/${DeleteGroupLambdaName}.zip"
       PackageType: "Zip"
       Role: !GetAtt "DeleteGroupLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+          PROCESS_REPORT_QUEUE_URL: !Ref "ProcessReportQueueUrl"
+          PROCESS_GROUP_QUEUE_URL: !Ref "ProcessGroupQueueUrl"
+          GROUP_INDEX_NAME: !Ref "ReportsTableGroupIndexName"
+
+  UpdateGroupLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "UpdateGroupLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "functions/${UpdateGroupLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "UpdateGroupLambdaRole.Arn"
       MemorySize: 128
       Timeout: 30
       Environment:
@@ -687,6 +710,25 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
         - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
 
+  UpdateGroupLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${UpdateGroupLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+
   SuggestReportsLambdaRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -792,6 +834,11 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${DeleteGroupLambdaName}"
 
+  UpdateGroupLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${UpdateGroupLambdaName}"
+
   SuggestReportsLambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
@@ -829,6 +876,8 @@ Outputs:
     Value: !GetAtt "QueryGroupsLambda.Arn"
   DeleteGroupLambdaArn:
     Value: !GetAtt "DeleteGroupLambda.Arn"
+  UpdateGroupLambdaArn:
+    Value: !GetAtt "UpdateGroupLambda.Arn"
   SuggestReportsLambdaArn:
     Value: !GetAtt "SuggestReportsLambda.Arn"
   GroupReportsLambdaArn:
