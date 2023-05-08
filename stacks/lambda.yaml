@@ -7,6 +7,8 @@ Parameters:
     Type: "String"
   PhotosBucketName:
     Type: "String"
+  ReportsBucketName:
+    Type: "String"
   DomainEndpoint:
     Type: "String"
   ReportsTableName:
@@ -80,6 +82,9 @@ Parameters:
   GroupReportsLambdaName:
     Type: "String"
     Default: "group-reports"
+  BatchLoadReportsLambdaName:
+    Type: "String"
+    Default: "batch-load-reports"
 
 Resources:
   # Lambda Layers
@@ -420,6 +425,23 @@ Resources:
           REPORTS_TABLE_NAME: !Ref "ReportsTableName"
           PROCESS_REPORT_QUEUE_URL: !Ref "ProcessReportQueueUrl"
 
+  BatchLoadReportsLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "BatchLoadReportsLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "functions/${BatchLoadReportsLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "BatchLoadReportsLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 900
+      Environment:
+        Variables:
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+
   # Lambda Event Source Mappings
 
   StoreReportLambdaEventSourceMapping:
@@ -461,6 +483,15 @@ Resources:
       Principal: "s3.amazonaws.com"
       SourceAccount: !Ref "AWS::AccountId"
       SourceArn: !Sub "arn:${AWS::Partition}:s3:::${PhotosBucketName}"
+
+  BatchLoadReportsLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !GetAtt "BatchLoadReportsLambda.Arn"
+      Action: "lambda:InvokeFunction"
+      Principal: "s3.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:${AWS::Partition}:s3:::${ReportsBucketName}"
 
   # Lambda Execution Roles
 
@@ -595,7 +626,7 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
         - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
         - "arn:aws:iam::aws:policy/AmazonRekognitionReadOnlyAccess"
 
@@ -615,7 +646,7 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
         - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
 
   QueryReportsLambdaRole:
@@ -767,6 +798,25 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
         - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
 
+  BatchLoadReportsLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${BatchLoadReportsLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+
   # Lambda Log Groups
 
   PostReportLambdaLogGroup:
@@ -849,7 +899,13 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${GroupReportsLambdaName}"
 
+  BatchLoadReportsLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${BatchLoadReportsLambdaName}"
+
 Outputs:
+  # Lambda Arns
   PostReportLambdaArn:
     Value: !GetAtt "PostReportLambda.Arn"
   StoreReportLambdaArn:
@@ -882,6 +938,10 @@ Outputs:
     Value: !GetAtt "SuggestReportsLambda.Arn"
   GroupReportsLambdaArn:
     Value: !GetAtt "GroupReportsLambda.Arn"
+  BatchLoadReportsLambdaArn:
+    Value: !GetAtt "BatchLoadReportsLambda.Arn"
+
+  # IAM Role Arns
   UpdateIndexRoleArn:
     Value: !GetAtt "UpdateIndexLambdaRole.Arn"
   QueryReportsRoleArn:

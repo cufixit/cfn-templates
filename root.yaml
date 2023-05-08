@@ -14,6 +14,9 @@ Parameters:
   PhotosBucketName:
     Type: "String"
     Default: "cu-fixit-photos"
+  ReportsBucketName:
+    Type: "String"
+    Default: "cu-fixit-reports"
 
 Resources:
   OpenSearchStack:
@@ -43,6 +46,7 @@ Resources:
         StackName: !Ref "AWS::StackName"
         LambdaCodeSourceBucket: !Ref "LambdaCodeSourceBucket"
         PhotosBucketName: !Ref "PhotosBucketName"
+        ReportsBucketName: !Ref "ReportsBucketName"
         DomainEndpoint: !GetAtt "OpenSearchStack.Outputs.DomainEndpoint"
         ReportsTableName: !GetAtt "DynamoDBStack.Outputs.ReportsTableName"
         ReportsTableStreamArn: !GetAtt "DynamoDBStack.Outputs.ReportsTableStreamArn"
@@ -123,6 +127,24 @@ Resources:
         LambdaConfigurations:
           - Event: "s3:ObjectCreated:*"
             Function: !GetAtt "LambdaStack.Outputs.DetectPhotoLabelsLambdaArn"
+
+  ReportsBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref "ReportsBucketName"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - "*"
+            AllowedMethods:
+              - "GET"
+              - "POST"
+            AllowedHeaders:
+              - "*"
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Function: !GetAtt "LambdaStack.Outputs.BatchLoadReportsLambdaArn"
 
 Outputs:
   UserApiId:
