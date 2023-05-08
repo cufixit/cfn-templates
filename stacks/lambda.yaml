@@ -74,6 +74,9 @@ Parameters:
   SuggestReportsLambdaName:
     Type: "String"
     Default: "suggest-reports"
+  GroupReportsLambdaName:
+    Type: "String"
+    Default: "group-reports"
 
 Resources:
   # Lambda Layers
@@ -153,6 +156,7 @@ Resources:
       Environment:
         Variables:
           PROCESS_GROUP_QUEUE_URL: !Ref "ProcessGroupQueueUrl"
+          PROCESS_REPORT_QUEUE_URL: !Ref "ProcessReportQueueUrl"
 
   StoreGroupLambda:
     Type: "AWS::Lambda::Function"
@@ -374,6 +378,24 @@ Resources:
           REPORTS_TABLE_NAME: !Ref "ReportsTableName"
           DOMAIN_ENDPOINT: !Ref "DomainEndpoint"
           DOMAIN_PORT: 443
+
+  GroupReportsLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref "GroupReportsLambdaName"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref "LambdaCodeSourceBucket"
+        S3Key: !Sub "functions/${GroupReportsLambdaName}.zip"
+      PackageType: "Zip"
+      Role: !GetAtt "GroupReportsLambdaRole.Arn"
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          REPORTS_TABLE_NAME: !Ref "ReportsTableName"
+          PROCESS_REPORT_QUEUE_URL: !Ref "ProcessReportQueueUrl"
 
   # Lambda Event Source Mappings
 
@@ -681,8 +703,27 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
         - "arn:aws:iam::aws:policy/AmazonOpenSearchServiceReadOnlyAccess"
+
+  GroupReportsLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      RoleName: !Sub "${StackName}-${GroupReportsLambdaName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
 
   # Lambda Log Groups
 
@@ -756,6 +797,11 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${SuggestReportsLambdaName}"
 
+  GroupReportsLambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${GroupReportsLambdaName}"
+
 Outputs:
   PostReportLambdaArn:
     Value: !GetAtt "PostReportLambda.Arn"
@@ -785,6 +831,8 @@ Outputs:
     Value: !GetAtt "DeleteGroupLambda.Arn"
   SuggestReportsLambdaArn:
     Value: !GetAtt "SuggestReportsLambda.Arn"
+  GroupReportsLambdaArn:
+    Value: !GetAtt "GroupReportsLambda.Arn"
   UpdateIndexRoleArn:
     Value: !GetAtt "UpdateIndexLambdaRole.Arn"
   QueryReportsRoleArn:

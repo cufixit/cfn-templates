@@ -103,6 +103,7 @@ Resources:
         QueryGroupsLambdaArn: !GetAtt "LambdaStack.Outputs.QueryGroupsLambdaArn"
         DeleteGroupLambdaArn: !GetAtt "LambdaStack.Outputs.DeleteGroupLambdaArn"
         SuggestReportsLambdaArn: !GetAtt "LambdaStack.Outputs.SuggestReportsLambdaArn"
+        GroupReportsLambdaArn: !GetAtt "LambdaStack.Outputs.GroupReportsLambdaArn"
 
   PhotosBucket:
     Type: "AWS::S3::Bucket"
