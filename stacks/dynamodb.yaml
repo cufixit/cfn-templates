@@ -35,12 +35,12 @@ Resources:
               - "createdDate"
               - "status"
           ProvisionedThroughput:
-            ReadCapacityUnits: 1
-            WriteCapacityUnits: 1
+            ReadCapacityUnits: 3
+            WriteCapacityUnits: 3
       BillingMode: "PROVISIONED"
       ProvisionedThroughput:
-        ReadCapacityUnits: 1
-        WriteCapacityUnits: 1
+        ReadCapacityUnits: 3
+        WriteCapacityUnits: 3
       StreamSpecification:
         StreamViewType: "NEW_IMAGE"
 
@@ -48,7 +48,7 @@ Resources:
     Type: "AWS::ApplicationAutoScaling::ScalableTarget"
     DependsOn: "ReportsTable"
     Properties:
-      MaxCapacity: 5
+      MaxCapacity: 10
       MinCapacity: 1
       ResourceId: !Sub "table/${ReportsTableName}"
       RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
@@ -66,13 +66,37 @@ Resources:
           PredefinedMetricType: "DynamoDBWriteCapacityUtilization"
         ScaleInCooldown: 60
         ScaleOutCooldown: 60
-        TargetValue: 80
+        TargetValue: 70
+
+  ReportsTableGroupIndexWriteCapacityScalableTarget:
+    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+    DependsOn: "ReportsTable"
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: 1
+      ResourceId: !Sub "table/${ReportsTableName}/index/${GroupIndexName}"
+      RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
+      ScalableDimension: "dynamodb:index:WriteCapacityUnits"
+      ServiceNamespace: "dynamodb"
+
+  ReportsTableGroupIndexWriteScalingPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
+    Properties:
+      PolicyName: !Sub "${ReportsTableName}-group-index-write-scaling-policy"
+      PolicyType: "TargetTrackingScaling"
+      ScalingTargetId: !Ref "ReportsTableGroupIndexWriteCapacityScalableTarget"
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: "DynamoDBWriteCapacityUtilization"
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        TargetValue: 70
 
   ReportsTableReadCapacityScalableTarget:
     Type: "AWS::ApplicationAutoScaling::ScalableTarget"
     DependsOn: "ReportsTable"
     Properties:
-      MaxCapacity: 5
+      MaxCapacity: 10
       MinCapacity: 1
       ResourceId: !Sub "table/${ReportsTableName}"
       RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
@@ -90,7 +114,31 @@ Resources:
           PredefinedMetricType: "DynamoDBReadCapacityUtilization"
         ScaleInCooldown: 60
         ScaleOutCooldown: 60
-        TargetValue: 80
+        TargetValue: 70
+
+  ReportsTableGroupIndexReadCapacityScalableTarget:
+    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+    DependsOn: "ReportsTable"
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: 1
+      ResourceId: !Sub "table/${ReportsTableName}/index/${GroupIndexName}"
+      RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_DynamoDBTable"
+      ScalableDimension: "dynamodb:index:ReadCapacityUnits"
+      ServiceNamespace: "dynamodb"
+
+  ReportsTableGroupIndexReadScalingPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
+    Properties:
+      PolicyName: !Sub "${ReportsTableName}-group-index-read-scaling-policy"
+      PolicyType: "TargetTrackingScaling"
+      ScalingTargetId: !Ref "ReportsTableGroupIndexReadCapacityScalableTarget"
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: "DynamoDBReadCapacityUtilization"
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        TargetValue: 70
 
 Outputs:
   ReportsTableName:
