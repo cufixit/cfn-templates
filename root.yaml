@@ -17,6 +17,12 @@ Parameters:
   ReportsBucketName:
     Type: "String"
     Default: "cu-fixit-reports"
+  UserClientBucketName:
+    Type: "String"
+    Default: "cu-fixit-user-client"
+  AdminClientBucketName:
+    Type: "String"
+    Default: "cu-fixit-admin-client"
 
 Resources:
   OpenSearchStack:
@@ -146,7 +152,62 @@ Resources:
           - Event: "s3:ObjectCreated:*"
             Function: !GetAtt "LambdaStack.Outputs.BatchLoadReportsLambdaArn"
 
+  UserClientBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref "UserClientBucketName"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: "ObjectWriter"
+      WebsiteConfiguration:
+        IndexDocument: "index.html"
+        ErrorDocument: "index.html"
+
+  UserClientBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: "PublicReadForGetBucketObjects"
+            Effect: "Allow"
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:${AWS::Partition}:s3:::${UserClientBucket}/*"
+      Bucket: !Ref "UserClientBucket"
+
+  AdminClientBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref "AdminClientBucketName"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: "ObjectWriter"
+      WebsiteConfiguration:
+        IndexDocument: "index.html"
+        ErrorDocument: "index.html"
+
+  AdminClientBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: "PublicReadForGetBucketObjects"
+            Effect: "Allow"
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:${AWS::Partition}:s3:::${AdminClientBucket}/*"
+      Bucket: !Ref "AdminClientBucket"
+
 Outputs:
+  UserWebsiteUrl:
+    Value: !GetAtt "UserClientBucket.WebsiteURL"
+  AdminWebsiteUrl:
+    Value: !GetAtt "AdminClientBucket.WebsiteURL"
   UserApiId:
     Value: !GetAtt "UserApiStack.Outputs.ApiId"
   UserApiUrl:
